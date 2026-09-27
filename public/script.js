@@ -3,26 +3,58 @@ const state = {
   subjectName: "Matemática",
   currentProblem: "",
   currentResult: null,
-  history: JSON.parse(localStorage.getItem("einsteinHistory") || "[]")
+
+  history: JSON.parse(
+    localStorage.getItem("einsteinHistory") || "[]"
+  )
 };
+
 
 /* =========================================================
    ELEMENTOS
 ========================================================= */
 
-const problemInput = document.getElementById("problemInput");
-const solveBtn = document.getElementById("solveBtn");
+const problemInput =
+  document.getElementById("problemInput");
 
-const homePage = document.getElementById("homePage");
-const solutionPage = document.getElementById("solutionPage");
-const historyPage = document.getElementById("historyPage");
-const favoritesPage = document.getElementById("favoritesPage");
+const solveBtn =
+  document.getElementById("solveBtn");
 
-const stepsContainer = document.getElementById("stepsContainer");
-const methodsContainer = document.getElementById("methodsContainer");
+const homePage =
+  document.getElementById("homePage");
 
-const solutionProblem = document.getElementById("solutionProblem");
-const solutionSubject = document.getElementById("solutionSubject");
+const solutionPage =
+  document.getElementById("solutionPage");
+
+const historyPage =
+  document.getElementById("historyPage");
+
+const favoritesPage =
+  document.getElementById("favoritesPage");
+
+const stepsContainer =
+  document.getElementById("stepsContainer");
+
+const methodsContainer =
+  document.getElementById("methodsContainer");
+
+const methodsPreview =
+  document.getElementById("methodsPreview");
+
+const solutionProblem =
+  document.getElementById("solutionProblem");
+
+const solutionSubject =
+  document.getElementById("solutionSubject");
+
+const solutionTitle =
+  document.getElementById("solutionTitle");
+
+const graphContainer =
+  document.getElementById("graphContainer");
+
+const learningContent =
+  document.getElementById("learningContent");
 
 const loadingOverlay =
   document.getElementById("loadingOverlay");
@@ -38,6 +70,9 @@ const recentList =
 
 const historyContainer =
   document.getElementById("historyContainer");
+
+const favoritesList =
+  document.getElementById("favoritesList");
 
 const subjectSelector =
   document.getElementById("subjectSelector");
@@ -66,6 +101,9 @@ const scanCard =
 const typeCard =
   document.getElementById("typeCard");
 
+const fileCard =
+  document.getElementById("fileCard");
+
 const newProblemBtn =
   document.getElementById("newProblemBtn");
 
@@ -81,20 +119,28 @@ const historyNewProblem =
 const mobileMenu =
   document.getElementById("mobileMenu");
 
+const sidebar =
+  document.getElementById("sidebar");
+
+
 /* =========================================================
    UTILIDADES
 ========================================================= */
 
 function escapeHTML(value) {
+
   return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+
 }
 
+
 function formatNumber(value) {
+
   if (typeof value !== "number") {
     return value;
   }
@@ -103,10 +149,15 @@ function formatNumber(value) {
     return "0";
   }
 
-  return Number(value.toFixed(6)).toString();
+  return Number(
+    value.toFixed(6)
+  ).toString();
+
 }
 
+
 function showToast(message) {
+
   if (!toast) return;
 
   if (toastText) {
@@ -118,28 +169,33 @@ function showToast(message) {
   setTimeout(() => {
     toast.classList.remove("show");
   }, 2500);
+
 }
+
 
 function showLoading(show) {
+
   if (!loadingOverlay) return;
 
-  if (show) {
-    loadingOverlay.classList.add("show");
-  } else {
-    loadingOverlay.classList.remove("show");
-  }
+  loadingOverlay.classList.toggle(
+    "show",
+    show
+  );
+
 }
 
+
 /* =========================================================
-   PÁGINAS
+   NAVEGAÇÃO
 ========================================================= */
 
 function showPage(pageId) {
 
-  document.querySelectorAll(".page").forEach(page => {
-    page.classList.remove("active-page");
-    page.classList.remove("active");
-  });
+  document
+    .querySelectorAll(".page")
+    .forEach(page => {
+      page.classList.remove("active-page");
+    });
 
   const page =
     document.getElementById(pageId);
@@ -148,22 +204,29 @@ function showPage(pageId) {
 
   page.classList.add("active-page");
 
-  document.querySelectorAll(".nav-item[data-page]")
+  document
+    .querySelectorAll(".nav-item[data-page]")
     .forEach(item => {
 
-      item.classList.remove("active");
-
-      if (item.dataset.page === pageId.replace("Page", "")) {
-        item.classList.add("active");
-      }
+      item.classList.toggle(
+        "active",
+        item.dataset.page ===
+        pageId.replace("Page", "")
+      );
 
     });
+
+  if (sidebar) {
+    sidebar.classList.remove("open");
+  }
 
   window.scrollTo({
     top: 0,
     behavior: "smooth"
   });
+
 }
+
 
 /* =========================================================
    NOVO PROBLEMA
@@ -179,22 +242,38 @@ function newProblem() {
     problemInput.focus();
   }
 
+  if (imagePreview) {
+    imagePreview.innerHTML = "";
+  }
+
+  if (imageInput) {
+    imageInput.value = "";
+  }
+
   showPage("homePage");
+
 }
 
+
 if (newProblemBtn) {
+
   newProblemBtn.addEventListener(
     "click",
     newProblem
   );
+
 }
 
+
 if (historyNewProblem) {
+
   historyNewProblem.addEventListener(
     "click",
     newProblem
   );
+
 }
+
 
 /* =========================================================
    MENU MOBILE
@@ -204,10 +283,9 @@ if (mobileMenu) {
 
   mobileMenu.addEventListener(
     "click",
-    () => {
+    event => {
 
-      const sidebar =
-        document.getElementById("sidebar");
+      event.stopPropagation();
 
       if (sidebar) {
         sidebar.classList.toggle("open");
@@ -218,42 +296,82 @@ if (mobileMenu) {
 
 }
 
+
+document.addEventListener(
+  "click",
+  event => {
+
+    if (
+      sidebar &&
+      sidebar.classList.contains("open") &&
+      !sidebar.contains(event.target) &&
+      event.target !== mobileMenu
+    ) {
+
+      sidebar.classList.remove("open");
+
+    }
+
+  }
+);
+
+
 /* =========================================================
    MATÉRIAS
 ========================================================= */
 
 function setSubject(subject) {
 
-  state.subject = subject;
-
   const names = {
+
     math: "Matemática",
+
     physics: "Física",
+
     chemistry: "Química"
+
   };
 
+  state.subject =
+    names[subject]
+      ? subject
+      : "math";
+
   state.subjectName =
-    names[subject] || "Matemática";
+    names[state.subject];
+
+
+  let dotClass = "math-dot";
+
+  if (state.subject === "physics") {
+    dotClass = "physics-dot";
+  }
+
+  if (state.subject === "chemistry") {
+    dotClass = "chemistry-dot";
+  }
+
 
   if (selectedSubject) {
 
     selectedSubject.innerHTML = `
-      <span class="subject-dot ${
-        subject === "math"
-          ? "math-dot"
-          : subject === "physics"
-            ? "physics-dot"
-            : "chemistry-dot"
-      }"></span>
+
+      <span class="subject-dot ${dotClass}"></span>
 
       ${escapeHTML(state.subjectName)}
+
     `;
+
   }
 
+
   if (subjectSelectorText) {
+
     subjectSelectorText.textContent =
       state.subjectName;
+
   }
+
 
   document
     .querySelectorAll("[data-subject]")
@@ -261,25 +379,43 @@ function setSubject(subject) {
 
       button.classList.toggle(
         "active",
-        button.dataset.subject === subject
+        button.dataset.subject ===
+        state.subject
       );
 
     });
 
+
   if (subjectMenu) {
     subjectMenu.classList.remove("open");
   }
+
 }
 
-/* =========================================================
-   SELETOR DE MATÉRIA
-========================================================= */
+
+document
+  .querySelectorAll("[data-subject]")
+  .forEach(button => {
+
+    button.addEventListener(
+      "click",
+      () => {
+        setSubject(
+          button.dataset.subject
+        );
+      }
+    );
+
+  });
+
 
 if (subjectSelector) {
 
   subjectSelector.addEventListener(
     "click",
-    () => {
+    event => {
+
+      event.stopPropagation();
 
       if (subjectMenu) {
         subjectMenu.classList.toggle("open");
@@ -290,37 +426,39 @@ if (subjectSelector) {
 
 }
 
-document
-  .querySelectorAll("[data-subject]")
-  .forEach(button => {
-
-    button.addEventListener(
-      "click",
-      () => {
-
-        setSubject(
-          button.dataset.subject
-        );
-
-      }
-    );
-
-  });
 
 /* =========================================================
    IMAGEM
 ========================================================= */
 
-if (imageBtn && imageInput) {
+function openImagePicker() {
+
+  if (imageInput) {
+    imageInput.click();
+  }
+
+}
+
+
+if (imageBtn) {
 
   imageBtn.addEventListener(
     "click",
-    () => {
-      imageInput.click();
-    }
+    openImagePicker
   );
 
 }
+
+
+if (scanCard) {
+
+  scanCard.addEventListener(
+    "click",
+    openImagePicker
+  );
+
+}
+
 
 if (imageInput) {
 
@@ -333,14 +471,17 @@ if (imageInput) {
 
       if (!file) return;
 
+
       const reader =
         new FileReader();
+
 
       reader.onload = e => {
 
         if (!imagePreview) return;
 
         imagePreview.innerHTML = `
+
           <div class="preview-inner">
 
             <img
@@ -356,12 +497,15 @@ if (imageInput) {
             </button>
 
           </div>
+
         `;
+
 
         const remove =
           document.getElementById(
             "removeImage"
           );
+
 
         if (remove) {
 
@@ -377,6 +521,7 @@ if (imageInput) {
 
       };
 
+
       reader.readAsDataURL(file);
 
     }
@@ -384,26 +529,18 @@ if (imageInput) {
 
 }
 
+
 /* =========================================================
-   CARDS RÁPIDOS
+   CARDS
 ========================================================= */
 
-if (scanCard && imageInput) {
-
-  scanCard.addEventListener(
-    "click",
-    () => {
-      imageInput.click();
-    }
-  );
-
-}
-
-if (typeCard && problemInput) {
+if (typeCard) {
 
   typeCard.addEventListener(
     "click",
     () => {
+
+      if (!problemInput) return;
 
       problemInput.focus();
 
@@ -417,6 +554,23 @@ if (typeCard && problemInput) {
 
 }
 
+
+if (fileCard) {
+
+  fileCard.addEventListener(
+    "click",
+    () => {
+
+      showToast(
+        "Envio de arquivos será adicionado em breve."
+      );
+
+    }
+  );
+
+}
+
+
 /* =========================================================
    SOLVER
 ========================================================= */
@@ -426,6 +580,7 @@ async function solveProblem() {
   const problem =
     problemInput?.value.trim();
 
+
   if (!problem) {
 
     showToast(
@@ -433,41 +588,64 @@ async function solveProblem() {
     );
 
     return;
+
   }
 
-  state.currentProblem = problem;
+
+  state.currentProblem =
+    problem;
+
 
   showLoading(true);
+
 
   try {
 
     const response =
-      await fetch("/api/solve", {
+      await fetch(
+        "/api/solve",
+        {
+          method: "POST",
 
-        method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
 
-        headers: {
-          "Content-Type":
-            "application/json"
-        },
+          body: JSON.stringify({
 
-        body: JSON.stringify({
+            problem,
 
-          problem: problem,
+            subject:
+              state.subject
 
-          subject: state.subject
+          })
 
-        })
+        }
+      );
 
-      });
 
-    const data =
-      await response.json();
+    let data;
+
+    try {
+
+      data =
+        await response.json();
+
+    } catch {
+
+      throw new Error(
+        "O servidor enviou uma resposta inválida."
+      );
+
+    }
+
 
     console.log(
-      "Resposta do EinsteinWeb:",
+      "EinsteinWeb:",
       data
     );
+
 
     if (!response.ok) {
 
@@ -478,16 +656,20 @@ async function solveProblem() {
 
     }
 
+
     if (!data.success) {
 
       throw new Error(
         data.error ||
-        "Não foi possível resolver."
+        "Não foi possível resolver o problema."
       );
 
     }
 
-    state.currentResult = data;
+
+    state.currentResult =
+      data;
+
 
     renderSolution(data);
 
@@ -496,7 +678,16 @@ async function solveProblem() {
       data
     );
 
-    showPage("solutionPage");
+
+    showPage(
+      "solutionPage"
+    );
+
+
+    switchSolutionTab(
+      "solution"
+    );
+
 
   } catch (error) {
 
@@ -507,7 +698,7 @@ async function solveProblem() {
 
     showToast(
       error.message ||
-      "Erro ao resolver o problema."
+      "Erro ao resolver."
     );
 
   } finally {
@@ -518,6 +709,7 @@ async function solveProblem() {
 
 }
 
+
 if (solveBtn) {
 
   solveBtn.addEventListener(
@@ -526,6 +718,7 @@ if (solveBtn) {
   );
 
 }
+
 
 /* =========================================================
    CTRL + ENTER
@@ -553,8 +746,9 @@ if (problemInput) {
 
 }
 
+
 /* =========================================================
-   RENDER SOLUÇÃO
+   SOLUÇÃO
 ========================================================= */
 
 function renderSolution(data) {
@@ -567,6 +761,7 @@ function renderSolution(data) {
 
   }
 
+
   if (solutionSubject) {
 
     solutionSubject.textContent =
@@ -574,16 +769,31 @@ function renderSolution(data) {
 
   }
 
+
+  if (solutionTitle) {
+
+    solutionTitle.textContent =
+      data.title ||
+      "Resolução passo a passo";
+
+  }
+
+
   renderSteps(data);
 
   renderMethods(data);
 
-  renderGraphSection(data);
+  renderMethodsPreview(data);
+
+  renderGraph(data);
+
+  renderLearning(data);
 
 }
 
+
 /* =========================================================
-   PASSO A PASSO
+   PASSOS
 ========================================================= */
 
 function renderSteps(data) {
@@ -592,19 +802,24 @@ function renderSteps(data) {
 
   stepsContainer.innerHTML = "";
 
+
   if (
-    !data.steps ||
-    !data.steps.length
+    !Array.isArray(data.steps) ||
+    data.steps.length === 0
   ) {
 
     stepsContainer.innerHTML = `
+
       <div class="empty-state">
         Nenhum passo encontrado.
       </div>
+
     `;
 
     return;
+
   }
+
 
   data.steps.forEach(
     (step, index) => {
@@ -612,18 +827,23 @@ function renderSteps(data) {
       const card =
         document.createElement("div");
 
+
       card.className =
         "solution-step";
+
 
       const title =
         step.title ||
         `Passo ${index + 1}`;
 
+
       const explanation =
         step.explanation || "";
 
+
       const formula =
         step.formula || "";
+
 
       card.innerHTML = `
 
@@ -663,23 +883,44 @@ function renderSteps(data) {
 
       `;
 
+
       stepsContainer.appendChild(card);
 
     }
   );
 
-  /* RESULTADO FINAL */
 
   if (
-    data.solutions &&
-    data.solutions.length
+    Array.isArray(data.solutions) &&
+    data.solutions.length > 0
   ) {
 
     const result =
       document.createElement("div");
 
+
     result.className =
       "final-result";
+
+
+    const values =
+      data.solutions
+        .map(
+          (value, index) => {
+
+            const label =
+              data.solutions.length > 1
+                ? `x${index + 1}`
+                : "x";
+
+            return `
+              ${label} = ${formatNumber(value)}
+            `;
+
+          }
+        )
+        .join("<br>");
+
 
     result.innerHTML = `
 
@@ -688,29 +929,11 @@ function renderSteps(data) {
       </div>
 
       <div class="result-value">
-
-        ${
-          data.solutions
-            .map(
-              (value, index) => {
-
-                const label =
-                  data.solutions.length > 1
-                    ? `x${index + 1}`
-                    : "x";
-
-                return `
-                  ${label} =
-                  ${formatNumber(value)}
-                `;
-              }
-            )
-            .join("<br>")
-        }
-
+        ${values}
       </div>
 
     `;
+
 
     stepsContainer.appendChild(
       result
@@ -719,6 +942,7 @@ function renderSteps(data) {
   }
 
 }
+
 
 /* =========================================================
    MÉTODOS
@@ -730,19 +954,24 @@ function renderMethods(data) {
 
   methodsContainer.innerHTML = "";
 
+
   if (
-    !data.methods ||
-    !data.methods.length
+    !Array.isArray(data.methods) ||
+    data.methods.length === 0
   ) {
 
     methodsContainer.innerHTML = `
+
       <div class="empty-state">
-        Nenhum método alternativo.
+        Nenhum método alternativo encontrado.
       </div>
+
     `;
 
     return;
+
   }
+
 
   data.methods.forEach(
     method => {
@@ -750,14 +979,17 @@ function renderMethods(data) {
       const card =
         document.createElement("div");
 
+
       card.className =
         "method-item";
+
 
       card.innerHTML = `
 
         <div class="method-name">
           ${escapeHTML(
-            method.name
+            method.name ||
+            "Método"
           )}
         </div>
 
@@ -776,28 +1008,33 @@ function renderMethods(data) {
         <div class="method-steps">
 
           ${
-            (method.steps || [])
-              .map(
-                (step, index) => `
-                  <div class="method-step">
+            Array.isArray(method.steps)
+              ? method.steps
+                  .map(
+                    (step, index) => `
 
-                    <span>
-                      ${index + 1}
-                    </span>
+                      <div class="method-step">
 
-                    <p>
-                      ${escapeHTML(step)}
-                    </p>
+                        <span>
+                          ${index + 1}
+                        </span>
 
-                  </div>
-                `
-              )
-              .join("")
+                        <p>
+                          ${escapeHTML(step)}
+                        </p>
+
+                      </div>
+
+                    `
+                  )
+                  .join("")
+              : ""
           }
 
         </div>
 
       `;
+
 
       methodsContainer.appendChild(
         card
@@ -808,63 +1045,129 @@ function renderMethods(data) {
 
 }
 
+
+function renderMethodsPreview(data) {
+
+  if (!methodsPreview) return;
+
+  methodsPreview.innerHTML = "";
+
+
+  if (
+    !Array.isArray(data.methods) ||
+    data.methods.length === 0
+  ) {
+
+    methodsPreview.innerHTML = `
+
+      <div class="empty-state">
+        Nenhum método encontrado.
+      </div>
+
+    `;
+
+    return;
+
+  }
+
+
+  data.methods.forEach(
+    method => {
+
+      const item =
+        document.createElement("div");
+
+
+      item.className =
+        "method-item";
+
+
+      item.innerHTML = `
+
+        <div class="method-name">
+          ${escapeHTML(
+            method.name ||
+            "Método"
+          )}
+        </div>
+
+        ${
+          method.description
+            ? `
+              <p>
+                ${escapeHTML(
+                  method.description
+                )}
+              </p>
+            `
+            : ""
+        }
+
+      `;
+
+
+      methodsPreview.appendChild(
+        item
+      );
+
+    }
+  );
+
+}
+
+
 /* =========================================================
    GRÁFICO
 ========================================================= */
 
-function renderGraphSection(data) {
+function renderGraph(data) {
 
-  /*
-    O HTML atual ainda não possui uma
-    área de gráfico dedicada.
+  if (!graphContainer) return;
 
-    Criamos uma automaticamente.
-  */
-
-  let graphContainer =
-    document.getElementById(
-      "graphContainer"
-    );
-
-  if (!graphContainer) {
-
-    graphContainer =
-      document.createElement("div");
-
-    graphContainer.id =
-      "graphContainer";
-
-    graphContainer.className =
-      "graph-container";
-
-    solutionPage.appendChild(
-      graphContainer
-    );
-
-  }
 
   if (
     !data.graph ||
-    !data.graph.points
+    !Array.isArray(data.graph.points) ||
+    data.graph.points.length < 2
   ) {
 
-    graphContainer.innerHTML = "";
+    graphContainer.innerHTML = `
+
+      <div class="graph-empty">
+
+        Não há dados suficientes
+        para gerar um gráfico deste problema.
+
+      </div>
+
+    `;
 
     return;
+
   }
+
 
   const points =
     data.graph.points;
 
-  const width = 700;
-  const height = 400;
-  const padding = 45;
+
+  const width = 800;
+
+  const height = 450;
+
+  const padding = 55;
+
 
   const xs =
-    points.map(point => point.x);
+    points.map(
+      point => Number(point.x)
+    );
 
   const ys =
-    points.map(point => point.y);
+    points.map(
+      point => Number(point.y)
+    );
+
 
   const minX =
     Math.min(...xs);
@@ -878,43 +1181,55 @@ function renderGraphSection(data) {
   const maxY =
     Math.max(...ys);
 
+
   const rangeX =
     maxX - minX || 1;
 
   const rangeY =
     maxY - minY || 1;
 
+
   function mapX(x) {
 
     return (
       padding +
-      ((x - minX) / rangeX) *
+      (
+        (x - minX) /
+        rangeX
+      ) *
       (width - padding * 2)
     );
 
   }
+
 
   function mapY(y) {
 
     return (
       height -
       padding -
-      ((y - minY) / rangeY) *
+      (
+        (y - minY) /
+        rangeY
+      ) *
       (height - padding * 2)
     );
 
   }
 
+
   let path = "";
+
 
   points.forEach(
     (point, index) => {
 
       const x =
-        mapX(point.x);
+        mapX(Number(point.x));
 
       const y =
-        mapY(point.y);
+        mapY(Number(point.y));
+
 
       path +=
         `${index === 0 ? "M" : "L"} ${x} ${y} `;
@@ -922,30 +1237,85 @@ function renderGraphSection(data) {
     }
   );
 
+
   const axisX =
-    minX <= 0 && maxX >= 0
+    minX <= 0 &&
+    maxX >= 0
       ? mapX(0)
       : null;
 
+
   const axisY =
-    minY <= 0 && maxY >= 0
+    minY <= 0 &&
+    maxY >= 0
       ? mapY(0)
       : null;
+
+
+  let rootsHTML = "";
+
+
+  if (
+    Array.isArray(data.graph.roots)
+  ) {
+
+    rootsHTML =
+      data.graph.roots
+        .map(root => {
+
+          const numericRoot =
+            Number(root);
+
+
+          if (
+            numericRoot < minX ||
+            numericRoot > maxX
+          ) {
+
+            return "";
+
+          }
+
+
+          return `
+
+            <circle
+              cx="${mapX(numericRoot)}"
+              cy="${mapY(0)}"
+              r="7"
+              class="graph-root"
+            />
+
+          `;
+
+        })
+        .join("");
+
+  }
+
 
   graphContainer.innerHTML = `
 
     <div class="graph-title">
-      Gráfico
+      ${escapeHTML(
+        data.graph.title ||
+        "Representação gráfica"
+      )}
     </div>
+
 
     <svg
       viewBox="0 0 ${width} ${height}"
       class="math-graph"
+      role="img"
+      aria-label="Gráfico da função"
     >
+
 
       ${
         axisY !== null
           ? `
+
             <line
               x1="${padding}"
               y1="${axisY}"
@@ -953,13 +1323,16 @@ function renderGraphSection(data) {
               y2="${axisY}"
               class="graph-axis"
             />
+
           `
           : ""
       }
 
+
       ${
         axisX !== null
           ? `
+
             <line
               x1="${axisX}"
               y1="${padding}"
@@ -967,9 +1340,11 @@ function renderGraphSection(data) {
               y2="${height - padding}"
               class="graph-axis"
             />
+
           `
           : ""
       }
+
 
       <path
         d="${path}"
@@ -977,37 +1352,16 @@ function renderGraphSection(data) {
         fill="none"
       />
 
-      ${
-        data.graph.roots
-          ? data.graph.roots
-              .map(root => {
 
-                if (
-                  root < minX ||
-                  root > maxX
-                ) {
-                  return "";
-                }
-
-                return `
-                  <circle
-                    cx="${mapX(root)}"
-                    cy="${mapY(0)}"
-                    r="6"
-                    class="graph-root"
-                  />
-                `;
-
-              })
-              .join("")
-          : ""
-      }
+      ${rootsHTML}
 
     </svg>
+
 
     ${
       data.graph.vertex
         ? `
+
           <div class="graph-info">
 
             Vértice:
@@ -1021,6 +1375,7 @@ function renderGraphSection(data) {
             )
 
           </div>
+
         `
         : ""
     }
@@ -1028,6 +1383,91 @@ function renderGraphSection(data) {
   `;
 
 }
+
+
+/* =========================================================
+   APRENDER
+========================================================= */
+
+function renderLearning(data) {
+
+  if (!learningContent) return;
+
+
+  const text =
+    data.learning ||
+    data.explanation ||
+    "Nenhuma explicação adicional disponível.";
+
+
+  learningContent.innerHTML = `
+
+    <p>
+      ${escapeHTML(text)}
+    </p>
+
+  `;
+
+}
+
+
+/* =========================================================
+   TABS
+========================================================= */
+
+function switchSolutionTab(tabName) {
+
+  document
+    .querySelectorAll(".solution-tab")
+    .forEach(tab => {
+
+      tab.classList.toggle(
+        "active",
+        tab.dataset.tab === tabName
+      );
+
+    });
+
+
+  document
+    .querySelectorAll(".solution-tab-content")
+    .forEach(content => {
+
+      content.classList.remove("active");
+
+    });
+
+
+  const target =
+    document.getElementById(
+      `${tabName}Tab`
+    );
+
+
+  if (target) {
+    target.classList.add("active");
+  }
+
+}
+
+
+document
+  .querySelectorAll(".solution-tab")
+  .forEach(tab => {
+
+    tab.addEventListener(
+      "click",
+      () => {
+
+        switchSolutionTab(
+          tab.dataset.tab
+        );
+
+      }
+    );
+
+  });
+
 
 /* =========================================================
    HISTÓRICO
@@ -1055,10 +1495,16 @@ function saveHistory(
 
   };
 
+
   state.history.unshift(item);
 
+
   state.history =
-    state.history.slice(0, 30);
+    state.history.slice(
+      0,
+      30
+    );
+
 
   localStorage.setItem(
     "einsteinHistory",
@@ -1067,17 +1513,51 @@ function saveHistory(
     )
   );
 
+
   renderRecent();
 
 }
+
+
+function openHistoryItem(item) {
+
+  if (!item) return;
+
+
+  state.currentProblem =
+    item.problem;
+
+
+  state.currentResult =
+    item.result;
+
+
+  renderSolution(
+    item.result
+  );
+
+
+  showPage(
+    "solutionPage"
+  );
+
+
+  switchSolutionTab(
+    "solution"
+  );
+
+}
+
 
 function renderRecent() {
 
   if (!recentList) return;
 
+
   if (!state.history.length) {
 
     recentList.innerHTML = `
+
       <div class="empty-state">
 
         <div>∑</div>
@@ -1088,10 +1568,13 @@ function renderRecent() {
         </span>
 
       </div>
+
     `;
 
     return;
+
   }
+
 
   recentList.innerHTML =
     state.history
@@ -1122,7 +1605,8 @@ function renderRecent() {
       )
       .join("");
 
-  document
+
+  recentList
     .querySelectorAll(
       "[data-history-id]"
     )
@@ -1135,25 +1619,16 @@ function renderRecent() {
           const item =
             state.history.find(
               historyItem =>
-                historyItem.id ==
-                button.dataset.historyId
+                String(
+                  historyItem.id
+                ) ===
+                String(
+                  button.dataset.historyId
+                )
             );
 
-          if (!item) return;
 
-          state.currentProblem =
-            item.problem;
-
-          state.currentResult =
-            item.result;
-
-          renderSolution(
-            item.result
-          );
-
-          showPage(
-            "solutionPage"
-          );
+          openHistoryItem(item);
 
         }
       );
@@ -1161,6 +1636,7 @@ function renderRecent() {
     });
 
 }
+
 
 /* =========================================================
    HISTÓRICO COMPLETO
@@ -1170,11 +1646,56 @@ function renderHistory() {
 
   if (!historyContainer) return;
 
+
   if (!state.history.length) {
+
+    historyContainer.innerHTML = `
+
+      <div class="empty-large">
+
+        <div class="empty-large-icon">
+          ◷
+        </div>
+
+        <h2>
+          Nenhum problema ainda
+        </h2>
+
+        <p>
+          Resolva o seu primeiro problema
+          para começar o histórico.
+        </p>
+
+        <button
+          class="primary-btn"
+          id="historyNewProblem"
+        >
+          Resolver problema
+        </button>
+
+      </div>
+
+    `;
+
+
+    const button =
+      document.getElementById(
+        "historyNewProblem"
+      );
+
+
+    if (button) {
+      button.addEventListener(
+        "click",
+        newProblem
+      );
+    }
+
 
     return;
 
   }
+
 
   historyContainer.innerHTML =
     state.history
@@ -1204,6 +1725,7 @@ function renderHistory() {
       )
       .join("");
 
+
   historyContainer
     .querySelectorAll(
       "[data-history-id]"
@@ -1217,25 +1739,16 @@ function renderHistory() {
           const item =
             state.history.find(
               historyItem =>
-                historyItem.id ==
-                button.dataset.historyId
+                String(
+                  historyItem.id
+                ) ===
+                String(
+                  button.dataset.historyId
+                )
             );
 
-          if (!item) return;
 
-          state.currentProblem =
-            item.problem;
-
-          state.currentResult =
-            item.result;
-
-          renderSolution(
-            item.result
-          );
-
-          showPage(
-            "solutionPage"
-          );
+          openHistoryItem(item);
 
         }
       );
@@ -1243,6 +1756,7 @@ function renderHistory() {
     });
 
 }
+
 
 /* =========================================================
    NAVEGAÇÃO
@@ -1253,11 +1767,16 @@ if (backBtn) {
   backBtn.addEventListener(
     "click",
     () => {
-      showPage("homePage");
+
+      showPage(
+        "homePage"
+      );
+
     }
   );
 
 }
+
 
 if (viewHistory) {
 
@@ -1276,6 +1795,36 @@ if (viewHistory) {
 
 }
 
+
+document
+  .querySelectorAll(
+    ".nav-item[data-page]"
+  )
+  .forEach(item => {
+
+    item.addEventListener(
+      "click",
+      () => {
+
+        const page =
+          item.dataset.page;
+
+        if (page === "history") {
+
+          renderHistory();
+
+        }
+
+        showPage(
+          `${page}Page`
+        );
+
+      }
+    );
+
+  });
+
+
 /* =========================================================
    INICIALIZAÇÃO
 ========================================================= */
@@ -1286,6 +1835,9 @@ renderRecent();
 
 showPage("homePage");
 
+switchSolutionTab("solution");
+
+
 console.log(
-  "EinsteinWeb Mathematics Engine V0.2 carregado."
+  "EinsteinWeb V0.3 carregado."
 );
