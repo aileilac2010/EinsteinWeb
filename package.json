@@ -1,6 +1,6 @@
 {
   "name": "einsteinweb",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "EinsteinWeb - AI problem solver for Mathematics, Physics and Chemistry",
   "main": "server.js",
   "scripts": {
