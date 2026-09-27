@@ -1518,7 +1518,7 @@ app.post("/api/solve", (req, res) => {
    FRONTEND
    ========================================================= */
 
-app.get("*", (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.join(publicPath, "index.html"));
 });
 
