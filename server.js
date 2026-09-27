@@ -3,1039 +3,1536 @@ const path = require("path");
 const math = require("mathjs");
 
 const app = express();
-
 const PORT = process.env.PORT || 3000;
-const publicPath = path.join(__dirname, "public");
-
-/* =========================================================
-   CONFIGURAÇÃO
-========================================================= */
 
 app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
+const publicPath = path.join(__dirname, "public");
 app.use(express.static(publicPath));
 
 /* =========================================================
-   UTILIDADES
-========================================================= */
+   EINSTEINWEB BRAIN V0.4
+   Mathematics + Physics + Chemistry
+   ========================================================= */
+
+/* =========================================================
+   GENERAL UTILITIES
+   ========================================================= */
 
 function formatNumber(value) {
   if (typeof value !== "number" || !Number.isFinite(value)) {
-    return String(value);
+    return value;
   }
 
-  if (Math.abs(value) < 1e-10) {
-    return "0";
+  if (Math.abs(value) < 1e-12) {
+    return 0;
   }
 
-  const rounded = Number(value.toFixed(8));
-
-  return String(rounded);
+  return Number(Number(value).toFixed(10));
 }
 
 function cleanProblem(problem) {
   return String(problem || "")
     .trim()
-    .replace(/[−–—]/g, "-")
-    .replace(/×/g, "*")
-    .replace(/÷/g, "/")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
     .replace(/,/g, ".")
-    .replace(/²/g, "^2")
-    .replace(/³/g, "^3")
     .replace(/\s+/g, " ");
 }
 
 function normalizeExpression(expression) {
-  let result = String(expression || "");
+  let s = String(expression || "").trim();
 
-  result = result
-    .replace(/[−–—]/g, "-")
-    .replace(/×/g, "*")
-    .replace(/÷/g, "/")
-    .replace(/,/g, ".")
+  s = s
     .replace(/²/g, "^2")
-    .replace(/³/g, "^3");
+    .replace(/³/g, "^3")
+    .replace(/⁴/g, "^4")
+    .replace(/⁵/g, "^5")
+    .replace(/−/g, "-")
+    .replace(/×/g, "*")
+    .replace(/÷/g, "/");
 
-  /*
-    Converte:
+  // 2x -> 2*x
+  s = s.replace(/(\d)\s*x\b/gi, "$1*x");
 
-    2x      -> 2*x
-    -5x     -> -5*x
-    3(x+1)  -> 3*(x+1)
-    (x+1)2  -> (x+1)*2
-    x(x+1)  -> x*(x+1)
-  */
+  // )x -> )*x
+  s = s.replace(/\)\s*x\b/gi, ")*x");
 
-  result = result.replace(
-    /(\d|\))\s*(x|\()/gi,
-    "$1*$2"
-  );
+  // 2(x+1) -> 2*(x+1)
+  s = s.replace(/(\d)\s*\(/g, "$1*(");
 
-  result = result.replace(
-    /(x|\))\s*(\d|\()/gi,
-    "$1*$2"
-  );
+  // x( ... ) -> x*(...)
+  s = s.replace(/\bx\s*\(/gi, "x*(");
 
-  result = result.replace(
-    /(\))\s*(x)/gi,
-    "$1*$2"
-  );
-
-  result = result.replace(
-    /\^/g,
-    "^"
-  );
-
-  return result;
+  return s;
 }
 
-function safeEvaluate(expression, xValue = null) {
+function safeEvaluate(expression, scope = {}) {
   try {
-    let expr = normalizeExpression(expression);
-
-    if (xValue !== null) {
-      return math.evaluate(expr, { x: xValue });
-    }
-
-    return math.evaluate(expr);
-  } catch (error) {
+    return math.evaluate(expression, scope);
+  } catch {
     return null;
   }
 }
 
-/* =========================================================
-   PARSER DE EQUAÇÕES
-========================================================= */
-
-function splitEquation(problem) {
-  const cleaned = cleanProblem(problem);
-
-  if (!cleaned.includes("=")) {
-    return {
-      left: cleaned,
-      right: "0"
-    };
-  }
-
-  const parts = cleaned.split("=");
-
-  return {
-    left: parts[0].trim(),
-    right: parts.slice(1).join("=").trim() || "0"
-  };
+function round(value) {
+  return formatNumber(Number(value));
 }
 
 /* =========================================================
-   POLINÔMIO
-========================================================= */
+   MATHEMATICS ENGINE
+   ========================================================= */
 
-function polynomialValue(expression, x) {
-  return safeEvaluate(expression, x);
+function splitEquation(problem) {
+  const parts = problem.split("=");
+
+  if (parts.length !== 2) {
+    return null;
+  }
+
+  return {
+    left: normalizeExpression(parts[0]),
+    right: normalizeExpression(parts[1])
+  };
+}
+
+function polynomialValue(coefficients, x) {
+  let total = 0;
+
+  for (let i = 0; i < coefficients.length; i++) {
+    total += coefficients[i] * Math.pow(x, coefficients.length - 1 - i);
+  }
+
+  return total;
 }
 
 function parsePolynomial(problem) {
   const equation = splitEquation(problem);
 
-  const left = normalizeExpression(equation.left);
-  const right = normalizeExpression(equation.right);
-
-  const expression = `(${left})-(${right})`;
-
-  const y0 = polynomialValue(expression, 0);
-  const y1 = polynomialValue(expression, 1);
-  const ym1 = polynomialValue(expression, -1);
-  const y2 = polynomialValue(expression, 2);
-  const ym2 = polynomialValue(expression, -2);
-
-  if (
-    y0 === null ||
-    y1 === null ||
-    ym1 === null ||
-    y2 === null ||
-    ym2 === null
-  ) {
+  if (!equation) {
     return null;
   }
 
-  /*
-    Para:
+  const expression = `(${equation.left}) - (${equation.right})`;
 
-    ax² + bx + c
+  const values = [-2, -1, 0, 1, 2];
 
-    temos:
+  const evaluated = values.map((x) => {
+    const y = safeEvaluate(expression, { x });
 
-    f(0) = c
+    if (typeof y !== "number" || !Number.isFinite(y)) {
+      return null;
+    }
 
-    f(1) = a + b + c
+    return y;
+  });
 
-    f(-1) = a - b + c
+  if (evaluated.some((v) => v === null)) {
+    return null;
+  }
 
-    portanto:
+  // Try quadratic coefficients:
+  // f(x) = ax² + bx + c
 
-    a = [f(1)+f(-1)-2f(0)]/2
-
-    b = [f(1)-f(-1)]/2
-  */
-
-  const c = y0;
+  const c = evaluated[2];
 
   const a =
-    (y1 + ym1 - 2 * y0) / 2;
+    (evaluated[4] - 2 * evaluated[3] + 2 * evaluated[1] - evaluated[0]) /
+    14;
 
   const b =
-    (y1 - ym1) / 2;
+    (evaluated[3] - evaluated[1]) / 2;
 
-  /*
-    Verificação para evitar classificar
-    funções não quadráticas como quadráticas.
-  */
+  const possibleA = Math.abs(a) < 1e-9 ? 0 : a;
+  const possibleB = Math.abs(b) < 1e-9 ? 0 : b;
 
-  const predicted2 =
-    a * 4 +
-    b * 2 +
-    c;
+  // Verify quadratic/linear model
+  let valid = true;
 
-  const predictedM2 =
-    a * 4 -
-    b * 2 +
-    c;
+  for (let i = 0; i < values.length; i++) {
+    const predicted =
+      possibleA * values[i] * values[i] +
+      possibleB * values[i] +
+      c;
 
-  const tolerance = 1e-7;
+    if (Math.abs(predicted - evaluated[i]) > 1e-6) {
+      valid = false;
+      break;
+    }
+  }
 
-  if (
-    Math.abs(predicted2 - y2) > tolerance ||
-    Math.abs(predictedM2 - ym2) > tolerance
-  ) {
+  if (!valid) {
     return null;
   }
 
   return {
-    a,
-    b,
-    c,
-    expression
+    a: round(possibleA),
+    b: round(possibleB),
+    c: round(c)
   };
 }
 
-/* =========================================================
-   EQUAÇÃO LINEAR
-========================================================= */
-
-function solveLinear(coefficients) {
-  const { a, b, c } = coefficients;
-
-  /*
-    ax + b = 0
-  */
-
-  if (Math.abs(a) > 1e-10) {
-    return null;
-  }
-
-  if (Math.abs(b) < 1e-10) {
-    if (Math.abs(c) < 1e-10) {
+function solveLinear(a, b) {
+  if (Math.abs(a) < 1e-12) {
+    if (Math.abs(b) < 1e-12) {
       return {
         type: "identity",
-        steps: [
-          {
-            title: "Analisar a equação",
-            explanation:
-              "Todos os termos se anulam, portanto a igualdade é verdadeira para qualquer valor de x.",
-            formula: "0 = 0"
-          }
-        ],
-        solutions: [],
-        methods: [],
-        learning: {
-          concept:
-            "Equações identicamente verdadeiras.",
-          explanation:
-            "Quando ambos os lados da equação são equivalentes para qualquer valor de x, existem infinitas soluções."
-        }
+        solutions: []
       };
     }
 
     return {
       type: "impossible",
-      steps: [
-        {
-          title: "Analisar a equação",
-          explanation:
-            "A variável desaparece, mas sobra uma igualdade impossível.",
-          formula: `${formatNumber(c)} = 0`
-        }
-      ],
-      solutions: [],
-      methods: [],
-      learning: {
-        concept:
-          "Equação sem solução.",
-        explanation:
-          "Uma igualdade falsa não pode ser satisfeita por nenhum valor de x."
-      }
+      solutions: []
     };
   }
 
-  const x = -c / b;
-
   return {
     type: "linear",
-
-    steps: [
-      {
-        title: "Identificar a forma da equação",
-        explanation:
-          "A equação pode ser escrita na forma ax + b = 0.",
-        formula:
-          `${formatNumber(b)}x + ${formatNumber(c)} = 0`
-      },
-
-      {
-        title: "Isolar o termo com x",
-        explanation:
-          "Passamos o termo independente para o outro lado.",
-        formula:
-          `${formatNumber(b)}x = ${formatNumber(-c)}`
-      },
-
-      {
-        title: "Dividir pelo coeficiente de x",
-        explanation:
-          "Dividimos os dois lados pelo coeficiente de x.",
-        formula:
-          `x = ${formatNumber(-c)} / ${formatNumber(b)}`
-      },
-
-      {
-        title: "Calcular",
-        explanation:
-          "Efetuando a divisão, encontramos o valor de x.",
-        formula:
-          `x = ${formatNumber(x)}`
-      }
-    ],
-
-    solutions: [x],
-
-    methods: [
-      {
-        name: "Isolamento da variável",
-        description:
-          "Método direto para equações lineares.",
-        steps: [
-          "Reunir os termos com x.",
-          "Passar o termo independente para o outro lado.",
-          "Dividir pelo coeficiente de x."
-        ]
-      }
-    ],
-
-    graph: {
-      points: createLinearGraph(b, c),
-      roots: [x]
-    },
-
-    learning: {
-      concept:
-        "Equação linear",
-      explanation:
-        "Uma equação linear possui a variável elevada à primeira potência. O objetivo é encontrar o valor que torna a igualdade verdadeira."
-    }
+    solutions: [round(-b / a)]
   };
 }
 
-/* =========================================================
-   EQUAÇÃO QUADRÁTICA
-========================================================= */
+function findFactorization(a, b, c) {
+  if (Math.abs(a) < 1e-12) {
+    return null;
+  }
 
-function solveQuadratic(coefficients) {
-  const { a, b, c } = coefficients;
+  // Monic case: x² + bx + c
+  if (Math.abs(a - 1) < 1e-12) {
+    for (let p = -100; p <= 100; p++) {
+      for (let q = -100; q <= 100; q++) {
+        if (
+          Math.abs(p + q - b) < 1e-12 &&
+          Math.abs(p * q - c) < 1e-12
+        ) {
+          return { p, q };
+        }
+      }
+    }
+  }
 
-  const discriminant =
-    b * b - 4 * a * c;
+  // Integer factorization for ax² + bx + c
+  for (let m = -100; m <= 100; m++) {
+    if (m === 0) continue;
+
+    for (let n = -100; n <= 100; n++) {
+      if (n === 0) continue;
+
+      for (let p = -100; p <= 100; p++) {
+        if (p === 0) continue;
+
+        for (let q = -100; q <= 100; q++) {
+          if (q === 0) continue;
+
+          if (
+            m * p === a &&
+            n * q === c &&
+            m * q + n * p === b
+          ) {
+            return { m, n, p, q };
+          }
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+function formatFactorization(a, b, c, factors) {
+  if (!factors) return null;
+
+  if (factors.p !== undefined) {
+    const p = factors.p;
+    const q = factors.q;
+
+    const part1 = p >= 0 ? `x + ${p}` : `x - ${Math.abs(p)}`;
+    const part2 = q >= 0 ? `x + ${q}` : `x - ${Math.abs(q)}`;
+
+    return `(${part1})(${part2})`;
+  }
+
+  return null;
+}
+
+function solveQuadratic(a, b, c) {
+  const discriminant = b * b - 4 * a * c;
 
   const steps = [];
 
   steps.push({
     title: "Identificar os coeficientes",
-    explanation:
-      "A equação está na forma ax² + bx + c = 0.",
-    formula:
-      `${formatNumber(a)}x² + ${formatNumber(b)}x + ${formatNumber(c)} = 0`
+    explanation: `A equação está na forma ax² + bx + c = 0.`,
+    formula: `a = ${a}, b = ${b}, c = ${c}`
   });
 
   steps.push({
     title: "Calcular o discriminante",
-    explanation:
-      "O discriminante indica quantas raízes reais a equação possui.",
-    formula:
-      `Δ = b² - 4ac = ${formatNumber(discriminant)}`
+    explanation: "Usamos Δ = b² − 4ac.",
+    formula: `Δ = (${b})² − 4(${a})(${c}) = ${round(discriminant)}`
   });
 
-  if (discriminant < -1e-10) {
+  if (Math.abs(discriminant) < 1e-12) {
+    const x = -b / (2 * a);
+
     steps.push({
-      title: "Interpretar o discriminante",
-      explanation:
-        "Como Δ é negativo, a equação não possui raízes reais.",
-      formula:
-        `Δ < 0`
+      title: "Aplicar Bhaskara",
+      explanation: "Como Δ = 0, existe uma única solução real.",
+      formula: `x = −b / 2a = ${round(x)}`
     });
 
     return {
-      type: "quadratic",
-      discriminant,
-      steps,
-      solutions: [],
-      methods: [
-        {
-          name: "Fórmula quadrática",
-          description:
-            "A fórmula mostra que não existem soluções reais quando o discriminante é negativo.",
-          steps: [
-            "Calcular Δ.",
-            "Verificar que Δ < 0.",
-            "Concluir que não existem raízes reais."
-          ]
-        }
-      ],
-      graph: createQuadraticGraph(a, b, c, []),
-      learning: {
-        concept:
-          "Discriminante",
-        explanation:
-          "O discriminante Δ = b² - 4ac determina a natureza das raízes de uma equação quadrática."
-      }
+      discriminant: round(discriminant),
+      solutions: [round(x)],
+      steps
     };
   }
 
-  let sqrtDelta =
-    Math.sqrt(Math.max(0, discriminant));
+  if (discriminant < 0) {
+    const realPart = -b / (2 * a);
+    const imaginaryPart = Math.sqrt(-discriminant) / Math.abs(2 * a);
 
-  let x1 =
-    (-b + sqrtDelta) / (2 * a);
-
-  let x2 =
-    (-b - sqrtDelta) / (2 * a);
-
-  if (Math.abs(x1) < 1e-10) {
-    x1 = 0;
-  }
-
-  if (Math.abs(x2) < 1e-10) {
-    x2 = 0;
-  }
-
-  steps.push({
-    title: "Aplicar a fórmula quadrática",
-    explanation:
-      "Substituímos os coeficientes na fórmula x = (-b ± √Δ)/(2a).",
-    formula:
-      `x = (${-formatNumber(b)} ± √${formatNumber(discriminant)}) / ${formatNumber(2 * a)}`
-  });
-
-  steps.push({
-    title: "Encontrar as raízes",
-    explanation:
-      "Calculamos os dois valores possíveis para x.",
-    formula:
-      `x₁ = ${formatNumber(x1)}   |   x₂ = ${formatNumber(x2)}`
-  });
-
-  const methods = [];
-
-  /* =======================================================
-     MÉTODO 1 — BHASKARA
-  ======================================================= */
-
-  methods.push({
-    name: "Fórmula quadrática",
-    description:
-      "Método geral que funciona para qualquer equação quadrática.",
-    steps: [
-      "Identificar a, b e c.",
-      "Calcular Δ = b² - 4ac.",
-      "Calcular x₁ e x₂ usando a fórmula quadrática.",
-      `Obter x₁ = ${formatNumber(x1)}.`,
-      `Obter x₂ = ${formatNumber(x2)}.`
-    ]
-  });
-
-  /* =======================================================
-     MÉTODO 2 — FATORAÇÃO
-  ======================================================= */
-
-  const factorization =
-    findFactorization(a, b, c);
-
-  if (factorization) {
-    methods.push({
-      name: "Fatoração",
-      description:
-        "A equação pode ser transformada em um produto de fatores.",
-      steps: [
-        `Escrever a equação como ${factorization.form}.`,
-        `Igualar cada fator a zero.`,
-        `Obter x₁ = ${formatNumber(x1)}.`,
-        `Obter x₂ = ${formatNumber(x2)}.`
-      ]
+    steps.push({
+      title: "Interpretar o discriminante",
+      explanation:
+        "Como Δ < 0, a equação não possui soluções reais.",
+      formula:
+        `x = ${round(realPart)} ± ${round(imaginaryPart)}i`
     });
+
+    return {
+      discriminant: round(discriminant),
+      solutions: [],
+      complexSolutions: [
+        {
+          real: round(realPart),
+          imaginary: round(imaginaryPart)
+        },
+        {
+          real: round(realPart),
+          imaginary: round(-imaginaryPart)
+        }
+      ],
+      steps
+    };
   }
 
-  /* =======================================================
-     MÉTODO 3 — COMPLETAR QUADRADOS
-  ======================================================= */
+  const sqrtDelta = Math.sqrt(discriminant);
 
-  const vertexX =
-    -b / (2 * a);
+  const x1 = (-b + sqrtDelta) / (2 * a);
+  const x2 = (-b - sqrtDelta) / (2 * a);
 
-  const vertexY =
-    a * vertexX * vertexX +
-    b * vertexX +
-    c;
-
-  methods.push({
-    name: "Completar o quadrado",
-    description:
-      "Transformamos a equação para a forma de vértice.",
-    steps: [
-      `Calcular o eixo de simetria: x = ${formatNumber(vertexX)}.`,
-      `Encontrar o vértice: (${formatNumber(vertexX)}, ${formatNumber(vertexY)}).`,
-      "Usar a forma de vértice para encontrar as raízes."
-    ]
+  steps.push({
+    title: "Aplicar Bhaskara",
+    explanation:
+      "Usamos x = (−b ± √Δ) / 2a.",
+    formula:
+      `x₁ = ${round(x1)}`
   });
 
-  /* =======================================================
-     GRÁFICO
-  ======================================================= */
-
-  const roots =
-    Math.abs(x1 - x2) < 1e-10
-      ? [x1]
-      : [x1, x2];
+  steps.push({
+    title: "Segunda solução",
+    explanation:
+      "Usando o sinal negativo na fórmula:",
+    formula:
+      `x₂ = ${round(x2)}`
+  });
 
   return {
-    type: "quadratic",
-
-    coefficients: {
-      a,
-      b,
-      c
-    },
-
-    discriminant,
-
-    steps,
-
-    solutions: roots,
-
-    methods,
-
-    graph: createQuadraticGraph(
-      a,
-      b,
-      c,
-      roots
-    ),
-
-    learning: {
-      concept:
-        "Equação quadrática",
-      explanation:
-        "Uma equação quadrática possui a forma ax² + bx + c = 0, com a diferente de zero. O seu gráfico é uma parábola.",
-      formulas: [
-        "Δ = b² - 4ac",
-        "x = (-b ± √Δ) / 2a",
-        "xᵥ = -b / 2a"
-      ]
-    }
+    discriminant: round(discriminant),
+    solutions: [round(x1), round(x2)],
+    steps
   };
 }
 
-/* =========================================================
-   FATORAÇÃO
-========================================================= */
+function createQuadraticGraph(a, b, c) {
+  const vertexX = -b / (2 * a);
+  const vertexY = a * vertexX * vertexX + b * vertexX + c;
 
-function findFactorization(a, b, c) {
-  if (Math.abs(a) < 1e-10) {
-    return null;
-  }
+  const roots = [];
 
-  /*
-    Para coeficientes pequenos, procuramos
-    raízes inteiras ou decimais simples.
-  */
+  const delta = b * b - 4 * a * c;
 
-  const possibleRoots = [];
+  if (delta >= 0) {
+    roots.push((-b + Math.sqrt(delta)) / (2 * a));
 
-  for (let i = -100; i <= 100; i++) {
-    possibleRoots.push(i);
-
-    if (i !== 0) {
-      possibleRoots.push(i / 2);
-      possibleRoots.push(i / 4);
+    if (Math.abs(delta) > 1e-12) {
+      roots.push((-b - Math.sqrt(delta)) / (2 * a));
     }
   }
 
-  for (const r1 of possibleRoots) {
-    for (const r2 of possibleRoots) {
-      if (Math.abs(r1 - r2) < 1e-10) {
-        continue;
-      }
+  let minX = vertexX - 5;
+  let maxX = vertexX + 5;
 
-      const calculatedB =
-        -a * (r1 + r2);
-
-      const calculatedC =
-        a * r1 * r2;
-
-      if (
-        Math.abs(calculatedB - b) < 1e-8 &&
-        Math.abs(calculatedC - c) < 1e-8
-      ) {
-        const factor1 =
-          formatFactor(r1);
-
-        const factor2 =
-          formatFactor(r2);
-
-        return {
-          form:
-            `${formatNumber(a)}(x ${factor1})(x ${factor2})`
-        };
-      }
-    }
-  }
-
-  return null;
-}
-
-function formatFactor(root) {
-  if (root < 0) {
-    return `+ ${formatNumber(Math.abs(root))}`;
-  }
-
-  return `- ${formatNumber(root)}`;
-}
-
-/* =========================================================
-   EXPRESSÃO NUMÉRICA
-========================================================= */
-
-function solveExpression(problem) {
-  const expression =
-    cleanProblem(problem);
-
-  const result =
-    safeEvaluate(expression);
-
-  if (result === null) {
-    return null;
-  }
-
-  if (
-    typeof result !== "number" ||
-    !Number.isFinite(result)
-  ) {
-    return null;
-  }
-
-  return {
-    type: "expression",
-
-    steps: [
-      {
-        title: "Interpretar a expressão",
-        explanation:
-          "A expressão foi identificada como uma operação matemática.",
-        formula:
-          expression
-      },
-
-      {
-        title: "Calcular",
-        explanation:
-          "Efetuamos as operações matemáticas respeitando a ordem das operações.",
-        formula:
-          `= ${formatNumber(result)}`
-      }
-    ],
-
-    solutions: [result],
-
-    methods: [
-      {
-        name: "Cálculo direto",
-        description:
-          "Avaliação da expressão respeitando a ordem das operações.",
-        steps: [
-          "Identificar as operações.",
-          "Aplicar a ordem das operações.",
-          `Resultado = ${formatNumber(result)}.`
-        ]
-      }
-    ],
-
-    learning: {
-      concept:
-        "Ordem das operações",
-      explanation:
-        "Em expressões matemáticas, multiplicações e divisões são realizadas antes de adições e subtrações, salvo quando há parênteses."
-    }
-  };
-}
-
-/* =========================================================
-   GRÁFICOS
-========================================================= */
-
-function createQuadraticGraph(
-  a,
-  b,
-  c,
-  roots
-) {
-  const vertexX =
-    -b / (2 * a);
-
-  const vertexY =
-    a * vertexX * vertexX +
-    b * vertexX +
-    c;
-
-  let minX;
-  let maxX;
-
-  if (roots.length >= 2) {
-    minX =
-      Math.min(...roots) - 4;
-
-    maxX =
-      Math.max(...roots) + 4;
-  } else {
-    minX =
-      vertexX - 6;
-
-    maxX =
-      vertexX + 6;
+  if (roots.length) {
+    minX = Math.min(minX, ...roots) - 2;
+    maxX = Math.max(maxX, ...roots) + 2;
   }
 
   const points = [];
 
-  const count = 120;
-
-  for (let i = 0; i <= count; i++) {
-    const x =
-      minX +
-      ((maxX - minX) * i) /
-        count;
-
-    const y =
-      a * x * x +
-      b * x +
-      c;
+  for (let i = 0; i <= 100; i++) {
+    const x = minX + ((maxX - minX) * i) / 100;
+    const y = a * x * x + b * x + c;
 
     points.push({
-      x,
-      y
+      x: round(x),
+      y: round(y)
     });
   }
 
   return {
     type: "quadratic",
-
+    equation: `y = ${a}x² + ${b}x + ${c}`,
     points,
-
-    roots,
-
+    roots: roots.map(round),
     vertex: {
-      x: vertexX,
-      y: vertexY
-    },
-
-    equation:
-      `${formatNumber(a)}x² + ${formatNumber(b)}x + ${formatNumber(c)}`
+      x: round(vertexX),
+      y: round(vertexY)
+    }
   };
 }
 
-function createLinearGraph(
-  a,
-  b
-) {
-  const root =
-    -b / a;
-
-  const minX =
-    root - 6;
-
-  const maxX =
-    root + 6;
-
+function createLinearGraph(a, b) {
   const points = [];
 
-  const count = 80;
-
-  for (let i = 0; i <= count; i++) {
-    const x =
-      minX +
-      ((maxX - minX) * i) /
-        count;
-
-    const y =
-      a * x + b;
-
+  for (let x = -10; x <= 10; x += 0.5) {
     points.push({
-      x,
-      y
+      x: round(x),
+      y: round(a * x + b)
     });
   }
 
   return {
     type: "linear",
-
+    equation: `y = ${a}x + ${b}`,
     points,
+    roots:
+      Math.abs(a) > 1e-12
+        ? [round(-b / a)]
+        : [],
+    intercept: {
+      x: 0,
+      y: round(b)
+    }
+  };
+}
 
-    roots: [root],
+function solveMath(problem) {
+  const parsed = parsePolynomial(problem);
 
-    equation:
-      `${formatNumber(a)}x + ${formatNumber(b)}`
+  if (!parsed) {
+    return {
+      success: false,
+      subject: "math",
+      message:
+        "Ainda não consigo interpretar esse tipo de problema matemático."
+    };
+  }
+
+  const { a, b, c } = parsed;
+
+  // Linear
+  if (Math.abs(a) < 1e-12) {
+    const result = solveLinear(b, c);
+
+    if (result.type === "linear") {
+      return {
+        success: true,
+        subject: "math",
+        title: "Equação linear",
+        type: "linear",
+        coefficients: { a: b, b: c },
+        solutions: result.solutions,
+        steps: [
+          {
+            title: "Identificar a equação",
+            explanation: `A equação pode ser escrita como ${b}x + ${c} = 0.`
+          },
+          {
+            title: "Isolar x",
+            formula: `x = −${c} / ${b}`
+          },
+          {
+            title: "Resultado",
+            formula: `x = ${round(-c / b)}`
+          }
+        ],
+        methods: [
+          {
+            name: "Isolamento da variável",
+            description:
+              "Colocamos o termo com x de um lado e os números do outro."
+          }
+        ],
+        graph: createLinearGraph(b, c),
+        learning: {
+          concept: "Equação linear",
+          explanation:
+            "Uma equação linear possui a variável elevada à primeira potência."
+        }
+      };
+    }
+  }
+
+  // Quadratic
+  const quadratic = solveQuadratic(a, b, c);
+
+  const factorData = findFactorization(a, b, c);
+  const factorization = formatFactorization(
+    a,
+    b,
+    c,
+    factorData
+  );
+
+  const vertexX = -b / (2 * a);
+  const vertexY =
+    a * vertexX * vertexX +
+    b * vertexX +
+    c;
+
+  const methods = [
+    {
+      name: "Bhaskara",
+      description:
+        "Utiliza o discriminante e a fórmula de Bhaskara para encontrar as raízes.",
+      formula:
+        "x = (−b ± √Δ) / 2a"
+    },
+    {
+      name: "Completar quadrados",
+      description:
+        "Reorganiza a equação para formar um quadrado perfeito.",
+      formula:
+        `x = −${b / (2 * a)} ± √(...)`
+    }
+  ];
+
+  if (factorization) {
+    methods.push({
+      name: "Fatorização",
+      description:
+        "Transforma a equação em um produto de fatores.",
+      formula: factorization
+    });
+  }
+
+  return {
+    success: true,
+    subject: "math",
+    title: "Equação quadrática",
+    type: "quadratic",
+    coefficients: { a, b, c },
+    discriminant: quadratic.discriminant,
+    solutions: quadratic.solutions,
+    complexSolutions: quadratic.complexSolutions || [],
+    steps: quadratic.steps,
+    methods,
+    graph: createQuadraticGraph(a, b, c),
+    learning: {
+      concept: "Equação quadrática",
+      explanation:
+        "Uma equação quadrática é uma equação na forma ax² + bx + c = 0, com a diferente de zero.",
+      vertex: {
+        x: round(vertexX),
+        y: round(vertexY)
+      }
+    }
   };
 }
 
 /* =========================================================
-   MOTOR MATEMÁTICO
-========================================================= */
+   PHYSICS ENGINE
+   ========================================================= */
 
-function solveMath(problem) {
-  const cleaned =
-    cleanProblem(problem);
+function extractNumber(text, patterns) {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
 
-  /*
-    Primeiro tentamos encontrar
-    uma equação polinomial.
-  */
+    if (match) {
+      const value = parseFloat(
+        String(match[1]).replace(",", ".")
+      );
 
-  if (
-    cleaned.includes("=") ||
-    /x/i.test(cleaned)
-  ) {
-    const polynomial =
-      parsePolynomial(cleaned);
-
-    if (polynomial) {
-      const {
-        a,
-        b,
-        c
-      } = polynomial;
-
-      if (Math.abs(a) > 1e-10) {
-        return solveQuadratic({
-          a,
-          b,
-          c
-        });
-      }
-
-      if (Math.abs(b) > 1e-10) {
-        return solveLinear({
-          a,
-          b,
-          c
-        });
+      if (Number.isFinite(value)) {
+        return value;
       }
     }
-  }
-
-  /*
-    Caso não seja equação,
-    tentamos calcular como expressão.
-  */
-
-  const expressionResult =
-    solveExpression(cleaned);
-
-  if (expressionResult) {
-    return expressionResult;
   }
 
   return null;
 }
 
+function convertToBase(value, unit) {
+  const u = String(unit || "").toLowerCase();
+
+  const conversions = {
+    m: 1,
+    km: 1000,
+    cm: 0.01,
+    mm: 0.001,
+
+    s: 1,
+    min: 60,
+    h: 3600,
+
+    kg: 1,
+    g: 0.001,
+
+    n: 1,
+    j: 1,
+    w: 1,
+
+    pa: 1,
+    kpa: 1000,
+
+    a: 1,
+    v: 1
+  };
+
+  if (conversions[u] === undefined) {
+    return value;
+  }
+
+  return value * conversions[u];
+}
+
+function detectUnit(text, patterns) {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+
+    if (match) {
+      return match[1].toLowerCase();
+    }
+  }
+
+  return null;
+}
+
+function solvePhysics(problem) {
+  const original = cleanProblem(problem);
+  const text = original.toLowerCase();
+
+  /* ---------------------------------------------------------
+     VELOCITY
+     --------------------------------------------------------- */
+
+  const distance = extractNumber(text, [
+    /(?:distância|distancia|distance)\s*(?:é|=|:)?\s*(-?\d+(?:[.,]\d+)?)\s*(km|m|cm|mm)\b/i,
+    /(-?\d+(?:[.,]\d+)?)\s*(km|m|cm|mm)\b/i
+  ]);
+
+  const time = extractNumber(text, [
+    /(?:tempo|time|duração|duracao)\s*(?:é|=|:)?\s*(-?\d+(?:[.,]\d+)?)\s*(h|min|s)\b/i,
+    /(-?\d+(?:[.,]\d+)?)\s*(h|min|s)\b/i
+  ]);
+
+  if (
+    distance !== null &&
+    time !== null &&
+    /(velocidade|velocidade média|velocidade media|speed)/i.test(text)
+  ) {
+    const distanceUnit = detectUnit(text, [
+      /(?:distância|distancia|distance).*?(-?\d+(?:[.,]\d+)?)\s*(km|m|cm|mm)\b/i,
+      /(-?\d+(?:[.,]\d+)?)\s*(km|m|cm|mm)\b/i
+    ]) || "m";
+
+    const timeUnit = detectUnit(text, [
+      /(?:tempo|time|duração|duracao).*?(-?\d+(?:[.,]\d+)?)\s*(h|min|s)\b/i,
+      /(-?\d+(?:[.,]\d+)?)\s*(h|min|s)\b/i
+    ]) || "s";
+
+    const dBase = convertToBase(distance, distanceUnit);
+    const tBase = convertToBase(time, timeUnit);
+
+    const velocity = dBase / tBase;
+
+    return {
+      success: true,
+      subject: "physics",
+      title: "Velocidade média",
+      type: "velocity",
+      given: {
+        distance: {
+          value: distance,
+          unit: distanceUnit
+        },
+        time: {
+          value: time,
+          unit: timeUnit
+        }
+      },
+      formula: "v = d / t",
+      result: {
+        value: round(velocity),
+        unit: "m/s"
+      },
+      steps: [
+        {
+          title: "Dados",
+          explanation:
+            `Distância = ${distance} ${distanceUnit}; Tempo = ${time} ${timeUnit}.`
+        },
+        {
+          title: "Fórmula",
+          formula: "v = d / t"
+        },
+        {
+          title: "Substituição",
+          formula:
+            `v = ${distance} ${distanceUnit} / ${time} ${timeUnit}`
+        },
+        {
+          title: "Resultado",
+          formula:
+            `v = ${round(velocity)} m/s`
+        }
+      ],
+      learning: {
+        concept: "Velocidade média",
+        explanation:
+          "A velocidade média relaciona a distância percorrida com o intervalo de tempo."
+      }
+    };
+  }
+
+  /* ---------------------------------------------------------
+     FORCE
+     --------------------------------------------------------- */
+
+  const mass = extractNumber(text, [
+    /(?:massa|mass)\s*(?:é|=|:)?\s*(-?\d+(?:[.,]\d+)?)\s*(kg|g)\b/i,
+    /(-?\d+(?:[.,]\d+)?)\s*(kg|g)\b/i
+  ]);
+
+  const acceleration = extractNumber(text, [
+    /(?:aceleração|aceleracao|acceleration)\s*(?:é|=|:)?\s*(-?\d+(?:[.,]\d+)?)\s*(m\/s²|m\/s2)\b/i,
+    /(-?\d+(?:[.,]\d+)?)\s*(m\/s²|m\/s2)\b/i
+  ]);
+
+  if (
+    mass !== null &&
+    acceleration !== null &&
+    /(força|forca|force)/i.test(text)
+  ) {
+    const massUnit = detectUnit(text, [
+      /(?:massa|mass).*?(-?\d+(?:[.,]\d+)?)\s*(kg|g)\b/i,
+      /(-?\d+(?:[.,]\d+)?)\s*(kg|g)\b/i
+    ]) || "kg";
+
+    const mBase = convertToBase(mass, massUnit);
+    const force = mBase * acceleration;
+
+    return {
+      success: true,
+      subject: "physics",
+      title: "Força resultante",
+      type: "force",
+      given: {
+        mass: {
+          value: mass,
+          unit: massUnit
+        },
+        acceleration: {
+          value: acceleration,
+          unit: "m/s²"
+        }
+      },
+      formula: "F = m × a",
+      result: {
+        value: round(force),
+        unit: "N"
+      },
+      steps: [
+        {
+          title: "Dados",
+          explanation:
+            `m = ${mass} ${massUnit}; a = ${acceleration} m/s².`
+        },
+        {
+          title: "Fórmula",
+          formula: "F = m × a"
+        },
+        {
+          title: "Substituição",
+          formula:
+            `F = ${mBase} × ${acceleration}`
+        },
+        {
+          title: "Resultado",
+          formula:
+            `F = ${round(force)} N`
+        }
+      ],
+      learning: {
+        concept: "Segunda lei de Newton",
+        explanation:
+          "A força resultante de um corpo é igual à massa multiplicada pela aceleração."
+      }
+    };
+  }
+
+  /* ---------------------------------------------------------
+     DENSITY
+     --------------------------------------------------------- */
+
+  const volume = extractNumber(text, [
+    /(?:volume)\s*(?:é|=|:)?\s*(-?\d+(?:[.,]\d+)?)\s*(m³|m3|cm³|cm3|l|ml)\b/i,
+    /(-?\d+(?:[.,]\d+)?)\s*(m³|m3|cm³|cm3|l|ml)\b/i
+  ]);
+
+  if (
+    mass !== null &&
+    volume !== null &&
+    /(densidade|density)/i.test(text)
+  ) {
+    const massUnit = detectUnit(text, [
+      /(?:massa|mass).*?(-?\d+(?:[.,]\d+)?)\s*(kg|g)\b/i
+    ]) || "kg";
+
+    const volumeUnit = detectUnit(text, [
+      /(?:volume).*?(-?\d+(?:[.,]\d+)?)\s*(m³|m3|cm³|cm3|l|ml)\b/i
+    ]) || "m3";
+
+    const massBase = convertToBase(mass, massUnit);
+
+    let volumeBase = volume;
+
+    if (volumeUnit === "cm³" || volumeUnit === "cm3") {
+      volumeBase = volume * 0.000001;
+    } else if (volumeUnit === "l") {
+      volumeBase = volume * 0.001;
+    } else if (volumeUnit === "ml") {
+      volumeBase = volume * 0.000001;
+    }
+
+    const density = massBase / volumeBase;
+
+    return {
+      success: true,
+      subject: "physics",
+      title: "Densidade",
+      type: "density",
+      given: {
+        mass: {
+          value: mass,
+          unit: massUnit
+        },
+        volume: {
+          value: volume,
+          unit: volumeUnit
+        }
+      },
+      formula: "ρ = m / V",
+      result: {
+        value: round(density),
+        unit: "kg/m³"
+      },
+      steps: [
+        {
+          title: "Dados",
+          formula:
+            `m = ${mass} ${massUnit}; V = ${volume} ${volumeUnit}`
+        },
+        {
+          title: "Fórmula",
+          formula: "ρ = m / V"
+        },
+        {
+          title: "Substituição",
+          formula:
+            `ρ = ${massBase} / ${volumeBase}`
+        },
+        {
+          title: "Resultado",
+          formula:
+            `ρ = ${round(density)} kg/m³`
+        }
+      ],
+      learning: {
+        concept: "Densidade",
+        explanation:
+          "A densidade indica quanta massa existe por unidade de volume."
+      }
+    };
+  }
+
+  /* ---------------------------------------------------------
+     OHM'S LAW
+     --------------------------------------------------------- */
+
+  const voltage = extractNumber(text, [
+    /(?:tensão|tensao|voltagem|voltage)\s*(?:é|=|:)?\s*(-?\d+(?:[.,]\d+)?)\s*v\b/i,
+    /(-?\d+(?:[.,]\d+)?)\s*v\b/i
+  ]);
+
+  const current = extractNumber(text, [
+    /(?:corrente|current)\s*(?:é|=|:)?\s*(-?\d+(?:[.,]\d+)?)\s*a\b/i,
+    /(-?\d+(?:[.,]\d+)?)\s*a\b/i
+  ]);
+
+  const resistance = extractNumber(text, [
+    /(?:resistência|resistencia|resistance)\s*(?:é|=|:)?\s*(-?\d+(?:[.,]\d+)?)\s*(ohm|Ω)\b/i,
+    /(-?\d+(?:[.,]\d+)?)\s*(ohm|Ω)\b/i
+  ]);
+
+  if (
+    voltage !== null &&
+    current !== null &&
+    /(resistência|resistencia|resistance)/i.test(text)
+  ) {
+    const result = voltage / current;
+
+    return {
+      success: true,
+      subject: "physics",
+      title: "Lei de Ohm",
+      type: "ohms-law",
+      given: {
+        voltage: {
+          value: voltage,
+          unit: "V"
+        },
+        current: {
+          value: current,
+          unit: "A"
+        }
+      },
+      formula: "R = V / I",
+      result: {
+        value: round(result),
+        unit: "Ω"
+      },
+      steps: [
+        {
+          title: "Dados",
+          formula: `V = ${voltage} V; I = ${current} A`
+        },
+        {
+          title: "Fórmula",
+          formula: "R = V / I"
+        },
+        {
+          title: "Substituição",
+          formula: `R = ${voltage} / ${current}`
+        },
+        {
+          title: "Resultado",
+          formula: `R = ${round(result)} Ω`
+        }
+      ],
+      learning: {
+        concept: "Lei de Ohm",
+        explanation:
+          "A Lei de Ohm relaciona tensão, corrente e resistência através de V = IR."
+      }
+    };
+  }
+
+  /* ---------------------------------------------------------
+     POWER
+     --------------------------------------------------------- */
+
+  if (
+    voltage !== null &&
+    current !== null &&
+    /(potência|potencia|power)/i.test(text)
+  ) {
+    const power = voltage * current;
+
+    return {
+      success: true,
+      subject: "physics",
+      title: "Potência elétrica",
+      type: "electric-power",
+      given: {
+        voltage: {
+          value: voltage,
+          unit: "V"
+        },
+        current: {
+          value: current,
+          unit: "A"
+        }
+      },
+      formula: "P = V × I",
+      result: {
+        value: round(power),
+        unit: "W"
+      },
+      steps: [
+        {
+          title: "Dados",
+          formula: `V = ${voltage} V; I = ${current} A`
+        },
+        {
+          title: "Fórmula",
+          formula: "P = V × I"
+        },
+        {
+          title: "Substituição",
+          formula: `P = ${voltage} × ${current}`
+        },
+        {
+          title: "Resultado",
+          formula: `P = ${round(power)} W`
+        }
+      ],
+      learning: {
+        concept: "Potência elétrica",
+        explanation:
+          "A potência elétrica representa a taxa de transferência de energia elétrica."
+      }
+    };
+  }
+
+  /* ---------------------------------------------------------
+     FALLBACK
+     --------------------------------------------------------- */
+
+  return {
+    success: false,
+    subject: "physics",
+    title: "Problema de Física",
+    message:
+      "O Physics Engine ainda não reconhece este tipo de problema. Os módulos atualmente disponíveis incluem velocidade, força, densidade, Lei de Ohm e potência elétrica."
+  };
+}
+
 /* =========================================================
-   API STATUS
-========================================================= */
+   CHEMISTRY ENGINE
+   ========================================================= */
+
+const atomicMasses = {
+  H: 1.008,
+  He: 4.003,
+  Li: 6.94,
+  Be: 9.012,
+  B: 10.81,
+  C: 12.011,
+  N: 14.007,
+  O: 15.999,
+  F: 18.998,
+  Ne: 20.180,
+  Na: 22.990,
+  Mg: 24.305,
+  Al: 26.982,
+  Si: 28.085,
+  P: 30.974,
+  S: 32.06,
+  Cl: 35.45,
+  Ar: 39.948,
+  K: 39.098,
+  Ca: 40.078,
+  Sc: 44.956,
+  Ti: 47.867,
+  V: 50.942,
+  Cr: 51.996,
+  Mn: 54.938,
+  Fe: 55.845,
+  Co: 58.933,
+  Ni: 58.693,
+  Cu: 63.546,
+  Zn: 65.38,
+  Ga: 69.723,
+  Ge: 72.630,
+  As: 74.922,
+  Se: 78.971,
+  Br: 79.904,
+  Kr: 83.798,
+  Ag: 107.868,
+  Cd: 112.414,
+  In: 114.818,
+  Sn: 118.710,
+  I: 126.904,
+  Xe: 131.293,
+  Cs: 132.905,
+  Ba: 137.327,
+  Pt: 195.084,
+  Au: 196.967,
+  Hg: 200.592,
+  Pb: 207.2
+};
+
+function parseFormula(formula) {
+  const clean = formula
+    .replace(/\s+/g, "")
+    .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, (char) => {
+      const map = {
+        "⁰": "0",
+        "¹": "1",
+        "²": "2",
+        "³": "3",
+        "⁴": "4",
+        "⁵": "5",
+        "⁶": "6",
+        "⁷": "7",
+        "⁸": "8",
+        "⁹": "9"
+      };
+
+      return map[char];
+    });
+
+  const elements = {};
+  let i = 0;
+
+  while (i < clean.length) {
+    const match = clean.slice(i).match(/^([A-Z][a-z]?)(\d*)/);
+
+    if (!match) {
+      return null;
+    }
+
+    const element = match[1];
+    const count = match[2] ? parseInt(match[2], 10) : 1;
+
+    if (!atomicMasses[element]) {
+      return null;
+    }
+
+    elements[element] =
+      (elements[element] || 0) + count;
+
+    i += match[0].length;
+  }
+
+  return elements;
+}
+
+function molarMass(formula) {
+  const parsed = parseFormula(formula);
+
+  if (!parsed) {
+    return null;
+  }
+
+  let total = 0;
+
+  for (const element of Object.keys(parsed)) {
+    total +=
+      atomicMasses[element] *
+      parsed[element];
+  }
+
+  return total;
+}
+
+function solveChemistry(problem) {
+  const original = cleanProblem(problem);
+  const text = original.toLowerCase();
+
+  /* ---------------------------------------------------------
+     MOLAR MASS
+     --------------------------------------------------------- */
+
+  const formulaMatch = original.match(
+    /\b([A-Z][a-z]?(?:\d+)?)+\b/
+  );
+
+  if (
+    formulaMatch &&
+    /(massa molar|molar mass|massa molecular|massa molecular relativa)/i.test(
+      original
+    )
+  ) {
+    const formula = formulaMatch[0];
+    const mass = molarMass(formula);
+
+    if (mass !== null) {
+      const composition = parseFormula(formula);
+
+      const parts = Object.entries(composition).map(
+        ([element, count]) =>
+          `${element}: ${count} × ${atomicMasses[element]}`
+      );
+
+      return {
+        success: true,
+        subject: "chemistry",
+        title: "Massa molar",
+        type: "molar-mass",
+        formula,
+        result: {
+          value: round(mass),
+          unit: "g/mol"
+        },
+        composition,
+        steps: [
+          {
+            title: "Identificar a fórmula",
+            formula: formula
+          },
+          {
+            title: "Massas atómicas",
+            formula: parts.join(" + ")
+          },
+          {
+            title: "Somar as contribuições",
+            formula:
+              `${parts.join(" + ")} = ${round(mass)} g/mol`
+          },
+          {
+            title: "Resultado",
+            formula:
+              `M(${formula}) = ${round(mass)} g/mol`
+          }
+        ],
+        learning: {
+          concept: "Massa molar",
+          explanation:
+            "A massa molar é a massa de um mol de uma substância, expressa normalmente em g/mol."
+        }
+      };
+    }
+  }
+
+  /* ---------------------------------------------------------
+     MOLES
+     --------------------------------------------------------- */
+
+  const massChem = extractNumber(text, [
+    /(?:massa|mass)\s*(?:é|=|:)?\s*(-?\d+(?:[.,]\d+)?)\s*g\b/i,
+    /(-?\d+(?:[.,]\d+)?)\s*g\b/i
+  ]);
+
+  const formulaChemMatch = original.match(
+    /\b([A-Z][a-z]?(?:\d+)?)+\b/
+  );
+
+  if (
+    massChem !== null &&
+    formulaChemMatch &&
+    /(mol|mols|número de mol|numero de mol|quantos mol)/i.test(text)
+  ) {
+    const formula = formulaChemMatch[0];
+    const M = molarMass(formula);
+
+    if (M !== null) {
+      const n = massChem / M;
+
+      return {
+        success: true,
+        subject: "chemistry",
+        title: "Quantidade de matéria",
+        type: "moles",
+        given: {
+          mass: {
+            value: massChem,
+            unit: "g"
+          },
+          substance: formula,
+          molarMass: {
+            value: round(M),
+            unit: "g/mol"
+          }
+        },
+        formula: "n = m / M",
+        result: {
+          value: round(n),
+          unit: "mol"
+        },
+        steps: [
+          {
+            title: "Calcular a massa molar",
+            formula:
+              `M(${formula}) = ${round(M)} g/mol`
+          },
+          {
+            title: "Usar a fórmula dos mols",
+            formula: "n = m / M"
+          },
+          {
+            title: "Substituir",
+            formula:
+              `n = ${massChem} / ${round(M)}`
+          },
+          {
+            title: "Resultado",
+            formula:
+              `n = ${round(n)} mol`
+          }
+        ],
+        learning: {
+          concept: "Quantidade de matéria",
+          explanation:
+            "A quantidade de matéria pode ser calculada dividindo a massa da amostra pela massa molar."
+        }
+      };
+    }
+  }
+
+  /* ---------------------------------------------------------
+     CONCENTRATION
+     --------------------------------------------------------- */
+
+  const solutionMass = extractNumber(text, [
+    /(?:massa do soluto|massa soluto|soluto)\s*(?:é|=|:)?\s*(-?\d+(?:[.,]\d+)?)\s*g\b/i
+  ]);
+
+  const solutionVolume = extractNumber(text, [
+    /(?:volume|solução|solucao)\s*(?:é|=|:)?\s*(-?\d+(?:[.,]\d+)?)\s*(l|ml)\b/i,
+    /(-?\d+(?:[.,]\d+)?)\s*(l|ml)\b/i
+  ]);
+
+  if (
+    solutionMass !== null &&
+    solutionVolume !== null &&
+    /(concentração|concentracao|concentração comum|concentracao comum)/i.test(
+      text
+    )
+  ) {
+    let volumeLiters = solutionVolume;
+
+    const volumeUnit = detectUnit(text, [
+      /(?:volume|solução|solucao).*?(-?\d+(?:[.,]\d+)?)\s*(l|ml)\b/i,
+      /(-?\d+(?:[.,]\d+)?)\s*(l|ml)\b/i
+    ]) || "l";
+
+    if (volumeUnit === "ml") {
+      volumeLiters /= 1000;
+    }
+
+    const concentration = solutionMass / volumeLiters;
+
+    return {
+      success: true,
+      subject: "chemistry",
+      title: "Concentração comum",
+      type: "concentration",
+      given: {
+        soluteMass: {
+          value: solutionMass,
+          unit: "g"
+        },
+        solutionVolume: {
+          value: solutionVolume,
+          unit: volumeUnit
+        }
+      },
+      formula: "C = m / V",
+      result: {
+        value: round(concentration),
+        unit: "g/L"
+      },
+      steps: [
+        {
+          title: "Dados",
+          formula:
+            `m = ${solutionMass} g; V = ${solutionVolume} ${volumeUnit}`
+        },
+        {
+          title: "Converter o volume",
+          formula:
+            `V = ${round(volumeLiters)} L`
+        },
+        {
+          title: "Fórmula",
+          formula: "C = m / V"
+        },
+        {
+          title: "Substituição",
+          formula:
+            `C = ${solutionMass} / ${volumeLiters}`
+        },
+        {
+          title: "Resultado",
+          formula:
+            `C = ${round(concentration)} g/L`
+        }
+      ],
+      learning: {
+        concept: "Concentração comum",
+        explanation:
+          "A concentração comum indica a massa de soluto presente em cada litro de solução."
+      }
+    };
+  }
+
+  /* ---------------------------------------------------------
+     MOLAR CONCENTRATION
+     --------------------------------------------------------- */
+
+  const molesChem = extractNumber(text, [
+    /(?:quantidade de matéria|número de mol|numero de mol|mols?)\s*(?:é|=|:)?\s*(-?\d+(?:[.,]\d+)?)\s*mol\b/i,
+    /(-?\d+(?:[.,]\d+)?)\s*mol\b/i
+  ]);
+
+  if (
+    molesChem !== null &&
+    solutionVolume !== null &&
+    /(molaridade|concentração molar|concentracao molar)/i.test(text)
+  ) {
+    let volumeLiters = solutionVolume;
+
+    const volumeUnit = detectUnit(text, [
+      /(?:volume|solução|solucao).*?(-?\d+(?:[.,]\d+)?)\s*(l|ml)\b/i,
+      /(-?\d+(?:[.,]\d+)?)\s*(l|ml)\b/i
+    ]) || "l";
+
+    if (volumeUnit === "ml") {
+      volumeLiters /= 1000;
+    }
+
+    const concentration = molesChem / volumeLiters;
+
+    return {
+      success: true,
+      subject: "chemistry",
+      title: "Concentração molar",
+      type: "molar-concentration",
+      given: {
+        moles: {
+          value: molesChem,
+          unit: "mol"
+        },
+        volume: {
+          value: solutionVolume,
+          unit: volumeUnit
+        }
+      },
+      formula: "C = n / V",
+      result: {
+        value: round(concentration),
+        unit: "mol/L"
+      },
+      steps: [
+        {
+          title: "Dados",
+          formula:
+            `n = ${molesChem} mol; V = ${solutionVolume} ${volumeUnit}`
+        },
+        {
+          title: "Converter o volume",
+          formula:
+            `V = ${round(volumeLiters)} L`
+        },
+        {
+          title: "Fórmula",
+          formula: "C = n / V"
+        },
+        {
+          title: "Substituição",
+          formula:
+            `C = ${molesChem} / ${volumeLiters}`
+        },
+        {
+          title: "Resultado",
+          formula:
+            `C = ${round(concentration)} mol/L`
+        }
+      ],
+      learning: {
+        concept: "Molaridade",
+        explanation:
+          "A concentração molar indica quantos mols de soluto existem por litro de solução."
+      }
+    };
+  }
+
+  /* ---------------------------------------------------------
+     FALLBACK
+     --------------------------------------------------------- */
+
+  return {
+    success: false,
+    subject: "chemistry",
+    title: "Problema de Química",
+    message:
+      "O Chemistry Engine ainda não reconhece este tipo de problema. Os módulos atualmente disponíveis incluem massa molar, mols, concentração comum e concentração molar."
+  };
+}
+
+/* =========================================================
+   MAIN SOLVER
+   ========================================================= */
+
+function solveProblem(problem, subject) {
+  const cleaned = cleanProblem(problem);
+
+  if (!cleaned) {
+    return {
+      success: false,
+      message: "Digite um problema para resolver."
+    };
+  }
+
+  if (subject === "math") {
+    return solveMath(cleaned);
+  }
+
+  if (subject === "physics") {
+    return solvePhysics(cleaned);
+  }
+
+  if (subject === "chemistry") {
+    return solveChemistry(cleaned);
+  }
+
+  return {
+    success: false,
+    message: "Disciplina não reconhecida."
+  };
+}
+
+/* =========================================================
+   API
+   ========================================================= */
 
 app.get("/api/status", (req, res) => {
   res.json({
     success: true,
     name: "EinsteinWeb",
-    version: "0.3.0",
+    brain: "Einstein Brain V0.4",
     status: "online",
-    engine: "Mathematics Engine",
-    features: [
-      "Equações lineares",
-      "Equações quadráticas",
-      "Fórmula quadrática",
-      "Fatoração",
-      "Completar quadrados",
-      "Gráficos",
-      "Passo a passo",
-      "Métodos alternativos"
-    ]
+    engines: {
+      mathematics: "active",
+      physics: "active",
+      chemistry: "active",
+      artificialIntelligence: "not_connected"
+    }
   });
 });
 
-/* =========================================================
-   API SOLVE
-========================================================= */
-
 app.post("/api/solve", (req, res) => {
   try {
-    const {
-      problem,
-      subject
-    } = req.body;
+    const { problem, subject } = req.body || {};
 
-    if (
-      !problem ||
-      typeof problem !== "string"
-    ) {
-      return res.status(400).json({
-        success: false,
-        error:
-          "Nenhum problema foi enviado."
-      });
-    }
+    const result = solveProblem(problem, subject);
 
-    console.log(
-      `Problema recebido: ${problem}`
-    );
-
-    console.log(
-      `Matéria: ${subject || "math"}`
-    );
-
-    /*
-      V0.3 trabalha primeiro
-      com Matemática.
-    */
-
-    if (
-      subject &&
-      subject !== "math"
-    ) {
-      return res.status(200).json({
-        success: true,
-
-        problem,
-
-        subject,
-
-        title:
-          "Motor em desenvolvimento",
-
-        steps: [
-          {
-            title:
-              "Problema recebido",
-            explanation:
-              `O EinsteinWeb recebeu um problema de ${subject === "physics" ? "Física" : "Química"}.`,
-            formula:
-              problem
-          },
-
-          {
-            title:
-              "Módulo em desenvolvimento",
-            explanation:
-              "Nesta versão, o motor matemático está mais avançado. Os motores de Física e Química serão adicionados nas próximas versões.",
-            formula:
-              "EinsteinWeb V0.3"
-          }
-        ],
-
-        solutions: [],
-
-        methods: [],
-
-        learning: {
-          concept:
-            subject === "physics"
-              ? "Física"
-              : "Química",
-
-          explanation:
-            "O módulo desta matéria está sendo preparado."
-        }
-      });
-    }
-
-    const result =
-      solveMath(problem);
-
-    if (!result) {
-      return res.status(422).json({
-        success: false,
-
-        error:
-          "Não consegui interpretar este problema. Tente escrever a equação de forma mais clara."
-      });
-    }
-
-    return res.json({
-      success: true,
-
-      problem,
-
-      subject:
-        subject || "math",
-
-      title:
-        result.type === "quadratic"
-          ? "Equação quadrática resolvida"
-          : result.type === "linear"
-            ? "Equação linear resolvida"
-            : "Expressão calculada",
-
-      ...result
-    });
-
+    res.json(result);
   } catch (error) {
+    console.error("Erro no /api/solve:", error);
 
-    console.error(
-      "Erro no /api/solve:",
-      error
-    );
-
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
-
-      error:
-        "Ocorreu um erro interno ao resolver o problema."
+      message:
+        "Ocorreu um erro interno ao processar o problema."
     });
   }
 });
 
 /* =========================================================
    FRONTEND
-========================================================= */
+   ========================================================= */
 
-app.use((req, res) => {
-  res.sendFile(
-    path.join(
-      publicPath,
-      "index.html"
-    )
-  );
+app.get("*", (req, res) => {
+  res.sendFile(path.join(publicPath, "index.html"));
 });
 
 /* =========================================================
-   START
-========================================================= */
+   SERVER
+   ========================================================= */
 
 app.listen(PORT, () => {
-  console.log(
-    `EinsteinWeb V0.3 running on port ${PORT}`
-  );
+  console.log("======================================");
+  console.log(" EinsteinWeb Brain V0.4");
+  console.log(" Mathematics: ACTIVE");
+  console.log(" Physics:     ACTIVE");
+  console.log(" Chemistry:   ACTIVE");
+  console.log(" AI:          NOT CONNECTED");
+  console.log(` Server:      http://localhost:${PORT}`);
+  console.log("======================================");
 });
