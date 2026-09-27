@@ -1,1412 +1,872 @@
+/* =========================================================
+   EINSTEINWEB V0.4
+   Frontend
+========================================================= */
+
 const state = {
   subject: "math",
-  subjectName: "Matemática",
-  currentProblem: "",
   currentResult: null,
-
-  history: JSON.parse(
-    localStorage.getItem("einsteinHistory") || "[]"
-  )
+  currentProblem: "",
+  history: JSON.parse(localStorage.getItem("einsteinHistory") || "[]"),
+  favorites: JSON.parse(localStorage.getItem("einsteinFavorites") || "[]")
 };
 
 
 /* =========================================================
-   ELEMENTOS
+   DOM
 ========================================================= */
 
-const problemInput =
-  document.getElementById("problemInput");
+const $ = (id) => document.getElementById(id);
 
-const solveBtn =
-  document.getElementById("solveBtn");
+const sidebar = $("sidebar");
+const mobileMenu = $("mobileMenu");
 
-const homePage =
-  document.getElementById("homePage");
+const homePage = $("homePage");
+const solutionPage = $("solutionPage");
+const historyPage = $("historyPage");
+const favoritesPage = $("favoritesPage");
 
-const solutionPage =
-  document.getElementById("solutionPage");
+const problemInput = $("problemInput");
+const solveBtn = $("solveBtn");
 
-const historyPage =
-  document.getElementById("historyPage");
+const subjectSelector = $("subjectSelector");
+const subjectSelectorText = $("subjectSelectorText");
+const selectedSubject = $("selectedSubject");
+const subjectMenu = $("subjectMenu");
 
-const favoritesPage =
-  document.getElementById("favoritesPage");
+const imageBtn = $("imageBtn");
+const imageInput = $("imageInput");
+const imagePreview = $("imagePreview");
 
-const stepsContainer =
-  document.getElementById("stepsContainer");
+const loadingOverlay = $("loadingOverlay");
 
-const methodsContainer =
-  document.getElementById("methodsContainer");
-
-const methodsPreview =
-  document.getElementById("methodsPreview");
-
-const solutionProblem =
-  document.getElementById("solutionProblem");
-
-const solutionSubject =
-  document.getElementById("solutionSubject");
-
-const solutionTitle =
-  document.getElementById("solutionTitle");
-
-const graphContainer =
-  document.getElementById("graphContainer");
-
-const learningContent =
-  document.getElementById("learningContent");
-
-const loadingOverlay =
-  document.getElementById("loadingOverlay");
-
-const toast =
-  document.getElementById("toast");
-
-const toastText =
-  document.getElementById("toastText");
-
-const recentList =
-  document.getElementById("recentList");
-
-const historyContainer =
-  document.getElementById("historyContainer");
-
-const favoritesList =
-  document.getElementById("favoritesList");
-
-const subjectSelector =
-  document.getElementById("subjectSelector");
-
-const subjectMenu =
-  document.getElementById("subjectMenu");
-
-const selectedSubject =
-  document.getElementById("selectedSubject");
-
-const subjectSelectorText =
-  document.getElementById("subjectSelectorText");
-
-const imageBtn =
-  document.getElementById("imageBtn");
-
-const imageInput =
-  document.getElementById("imageInput");
-
-const imagePreview =
-  document.getElementById("imagePreview");
-
-const scanCard =
-  document.getElementById("scanCard");
-
-const typeCard =
-  document.getElementById("typeCard");
-
-const fileCard =
-  document.getElementById("fileCard");
-
-const newProblemBtn =
-  document.getElementById("newProblemBtn");
-
-const backBtn =
-  document.getElementById("backBtn");
-
-const viewHistory =
-  document.getElementById("viewHistory");
-
-const historyNewProblem =
-  document.getElementById("historyNewProblem");
-
-const mobileMenu =
-  document.getElementById("mobileMenu");
-
-const sidebar =
-  document.getElementById("sidebar");
+const toast = $("toast");
+const toastText = $("toastText");
 
 
 /* =========================================================
-   UTILIDADES
+   SUBJECTS
 ========================================================= */
 
-function escapeHTML(value) {
+const SUBJECTS = {
+  math: {
+    name: "Matemática",
+    symbol: "∑"
+  },
 
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+  physics: {
+    name: "Física",
+    symbol: "⚡"
+  },
 
-}
+  chemistry: {
+    name: "Química",
+    symbol: "⚗"
+  }
+};
 
 
-function formatNumber(value) {
+function setSubject(subject) {
 
-  if (typeof value !== "number") {
-    return value;
+  if (!SUBJECTS[subject]) {
+    subject = "math";
   }
 
-  if (Math.abs(value) < 0.0000001) {
-    return "0";
-  }
+  state.subject = subject;
 
-  return Number(
-    value.toFixed(6)
-  ).toString();
+  const data = SUBJECTS[subject];
 
-}
+  subjectSelectorText.innerHTML = `
+    <span class="subject-symbol">${data.symbol}</span>
+    <span>${data.name}</span>
+    <span class="selector-arrow">⌄</span>
+  `;
 
+  selectedSubject.textContent = data.name;
 
-function showToast(message) {
+  document.querySelectorAll(".subject-option").forEach(button => {
+    button.classList.toggle(
+      "active",
+      button.dataset.subject === subject
+    );
+  });
 
-  if (!toast) return;
-
-  if (toastText) {
-    toastText.textContent = message;
-  }
-
-  toast.classList.add("show");
-
-  setTimeout(() => {
-    toast.classList.remove("show");
-  }, 2500);
-
-}
-
-
-function showLoading(show) {
-
-  if (!loadingOverlay) return;
-
-  loadingOverlay.classList.toggle(
-    "show",
-    show
-  );
-
+  subjectSelector.classList.remove("open");
 }
 
 
 /* =========================================================
-   NAVEGAÇÃO
+   PAGE NAVIGATION
 ========================================================= */
 
-function showPage(pageId) {
+function showPage(pageName) {
 
-  document
-    .querySelectorAll(".page")
-    .forEach(page => {
-      page.classList.remove("active-page");
-    });
+  document.querySelectorAll(".page").forEach(page => {
+    page.classList.remove("active-page");
+  });
 
-  const page =
-    document.getElementById(pageId);
+  const pageMap = {
+    home: homePage,
+    solution: solutionPage,
+    history: historyPage,
+    favorites: favoritesPage
+  };
 
-  if (!page) return;
-
-  page.classList.add("active-page");
-
-  document
-    .querySelectorAll(".nav-item[data-page]")
-    .forEach(item => {
-
-      item.classList.toggle(
-        "active",
-        item.dataset.page ===
-        pageId.replace("Page", "")
-      );
-
-    });
-
-  if (sidebar) {
-    sidebar.classList.remove("open");
+  if (pageMap[pageName]) {
+    pageMap[pageName].classList.add("active-page");
   }
+
+  document.querySelectorAll(".nav-item").forEach(item => {
+    item.classList.toggle(
+      "active",
+      item.dataset.page === pageName
+    );
+  });
+
+  sidebar?.classList.remove("open");
 
   window.scrollTo({
     top: 0,
     behavior: "smooth"
   });
-
 }
 
 
 /* =========================================================
-   NOVO PROBLEMA
+   SIDEBAR
 ========================================================= */
 
-function newProblem() {
-
-  state.currentProblem = "";
-  state.currentResult = null;
-
-  if (problemInput) {
-    problemInput.value = "";
-    problemInput.focus();
-  }
-
-  if (imagePreview) {
-    imagePreview.innerHTML = "";
-  }
-
-  if (imageInput) {
-    imageInput.value = "";
-  }
-
-  showPage("homePage");
-
-}
+mobileMenu?.addEventListener("click", () => {
+  sidebar.classList.toggle("open");
+});
 
 
-if (newProblemBtn) {
+document.querySelectorAll(".nav-item").forEach(item => {
 
-  newProblemBtn.addEventListener(
-    "click",
-    newProblem
-  );
+  item.addEventListener("click", () => {
 
-}
+    const page = item.dataset.page;
 
-
-if (historyNewProblem) {
-
-  historyNewProblem.addEventListener(
-    "click",
-    newProblem
-  );
-
-}
-
-
-/* =========================================================
-   MENU MOBILE
-========================================================= */
-
-if (mobileMenu) {
-
-  mobileMenu.addEventListener(
-    "click",
-    event => {
-
-      event.stopPropagation();
-
-      if (sidebar) {
-        sidebar.classList.toggle("open");
-      }
-
-    }
-  );
-
-}
-
-
-document.addEventListener(
-  "click",
-  event => {
-
-    if (
-      sidebar &&
-      sidebar.classList.contains("open") &&
-      !sidebar.contains(event.target) &&
-      event.target !== mobileMenu
-    ) {
-
-      sidebar.classList.remove("open");
-
+    if (page === "home") {
+      showPage("home");
     }
 
-  }
-);
+    if (page === "history") {
+      renderHistory();
+      showPage("history");
+    }
 
-
-/* =========================================================
-   MATÉRIAS
-========================================================= */
-
-function setSubject(subject) {
-
-  const names = {
-
-    math: "Matemática",
-
-    physics: "Física",
-
-    chemistry: "Química"
-
-  };
-
-  state.subject =
-    names[subject]
-      ? subject
-      : "math";
-
-  state.subjectName =
-    names[state.subject];
-
-
-  let dotClass = "math-dot";
-
-  if (state.subject === "physics") {
-    dotClass = "physics-dot";
-  }
-
-  if (state.subject === "chemistry") {
-    dotClass = "chemistry-dot";
-  }
-
-
-  if (selectedSubject) {
-
-    selectedSubject.innerHTML = `
-
-      <span class="subject-dot ${dotClass}"></span>
-
-      ${escapeHTML(state.subjectName)}
-
-    `;
-
-  }
-
-
-  if (subjectSelectorText) {
-
-    subjectSelectorText.textContent =
-      state.subjectName;
-
-  }
-
-
-  document
-    .querySelectorAll("[data-subject]")
-    .forEach(button => {
-
-      button.classList.toggle(
-        "active",
-        button.dataset.subject ===
-        state.subject
-      );
-
-    });
-
-
-  if (subjectMenu) {
-    subjectMenu.classList.remove("open");
-  }
-
-}
-
-
-document
-  .querySelectorAll("[data-subject]")
-  .forEach(button => {
-
-    button.addEventListener(
-      "click",
-      () => {
-        setSubject(
-          button.dataset.subject
-        );
-      }
-    );
+    if (page === "favorites") {
+      renderFavorites();
+      showPage("favorites");
+    }
 
   });
 
+});
 
-if (subjectSelector) {
 
-  subjectSelector.addEventListener(
-    "click",
-    event => {
+/* =========================================================
+   NEW PROBLEM
+========================================================= */
 
-      event.stopPropagation();
+$("newProblemBtn")?.addEventListener("click", newProblem);
+$("historyNewProblem")?.addEventListener("click", newProblem);
 
-      if (subjectMenu) {
-        subjectMenu.classList.toggle("open");
-      }
 
-    }
-  );
+function newProblem() {
 
+  state.currentResult = null;
+  state.currentProblem = "";
+
+  problemInput.value = "";
+
+  imagePreview.innerHTML = "";
+  imagePreview.classList.add("hidden");
+
+  $("answerValue").textContent = "—";
+  $("stepsContainer").innerHTML = "";
+  $("methodsContainer").innerHTML = "";
+  $("learningContainer").innerHTML = "";
+
+  resetGraph();
+
+  showPage("home");
+
+  setTimeout(() => {
+    problemInput.focus();
+  }, 100);
 }
 
 
 /* =========================================================
-   IMAGEM
+   SUBJECT SELECTOR
 ========================================================= */
 
-function openImagePicker() {
+subjectSelectorText?.addEventListener("click", (event) => {
 
-  if (imageInput) {
-    imageInput.click();
+  event.stopPropagation();
+
+  subjectSelector.classList.toggle("open");
+
+});
+
+
+document.querySelectorAll(".subject-option").forEach(button => {
+
+  button.addEventListener("click", () => {
+
+    setSubject(button.dataset.subject);
+
+  });
+
+});
+
+
+document.querySelectorAll(".subject-card").forEach(button => {
+
+  button.addEventListener("click", () => {
+
+    setSubject(button.dataset.subject);
+
+    problemInput.focus();
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth"
+    });
+
+  });
+
+});
+
+
+document.addEventListener("click", (event) => {
+
+  if (
+    subjectSelector &&
+    !subjectSelector.contains(event.target)
+  ) {
+    subjectSelector.classList.remove("open");
   }
 
-}
-
-
-if (imageBtn) {
-
-  imageBtn.addEventListener(
-    "click",
-    openImagePicker
-  );
-
-}
-
-
-if (scanCard) {
-
-  scanCard.addEventListener(
-    "click",
-    openImagePicker
-  );
-
-}
-
-
-if (imageInput) {
-
-  imageInput.addEventListener(
-    "change",
-    event => {
-
-      const file =
-        event.target.files?.[0];
-
-      if (!file) return;
-
-
-      const reader =
-        new FileReader();
-
-
-      reader.onload = e => {
-
-        if (!imagePreview) return;
-
-        imagePreview.innerHTML = `
-
-          <div class="preview-inner">
-
-            <img
-              src="${e.target.result}"
-              alt="Problema"
-            >
-
-            <button
-              type="button"
-              id="removeImage"
-            >
-              ×
-            </button>
-
-          </div>
-
-        `;
-
-
-        const remove =
-          document.getElementById(
-            "removeImage"
-          );
-
-
-        if (remove) {
-
-          remove.onclick = () => {
-
-            imagePreview.innerHTML = "";
-
-            imageInput.value = "";
-
-          };
-
-        }
-
-      };
-
-
-      reader.readAsDataURL(file);
-
-    }
-  );
-
-}
+});
 
 
 /* =========================================================
-   CARDS
+   IMAGE INPUT
 ========================================================= */
 
-if (typeCard) {
+imageBtn?.addEventListener("click", () => {
+  imageInput.click();
+});
 
-  typeCard.addEventListener(
-    "click",
-    () => {
-
-      if (!problemInput) return;
-
-      problemInput.focus();
-
-      problemInput.scrollIntoView({
-        behavior: "smooth",
-        block: "center"
-      });
-
-    }
-  );
-
-}
+$("scanCard")?.addEventListener("click", () => {
+  imageInput.click();
+});
 
 
-if (fileCard) {
+imageInput?.addEventListener("change", () => {
 
-  fileCard.addEventListener(
-    "click",
-    () => {
+  const file = imageInput.files?.[0];
 
-      showToast(
-        "Envio de arquivos será adicionado em breve."
-      );
+  if (!file) {
+    return;
+  }
 
-    }
-  );
+  if (!file.type.startsWith("image/")) {
+    showToast("Escolhe uma imagem válida.");
+    return;
+  }
 
-}
+  const reader = new FileReader();
+
+  reader.onload = () => {
+
+    imagePreview.innerHTML = `
+      <img src="${reader.result}" alt="Imagem do problema">
+    `;
+
+    imagePreview.classList.remove("hidden");
+
+    showToast(
+      "Imagem carregada. A leitura automática por OCR será adicionada numa próxima versão."
+    );
+
+  };
+
+  reader.readAsDataURL(file);
+
+});
 
 
 /* =========================================================
-   SOLVER
+   TYPE CARD
 ========================================================= */
+
+$("typeCard")?.addEventListener("click", () => {
+
+  problemInput.focus();
+
+  problemInput.scrollIntoView({
+    behavior: "smooth",
+    block: "center"
+  });
+
+});
+
+
+/* =========================================================
+   SOLVE
+========================================================= */
+
+solveBtn?.addEventListener("click", solveProblem);
+
+
+problemInput?.addEventListener("keydown", event => {
+
+  if (
+    event.key === "Enter" &&
+    (event.ctrlKey || event.metaKey)
+  ) {
+    solveProblem();
+  }
+
+});
+
 
 async function solveProblem() {
 
-  const problem =
-    problemInput?.value.trim();
-
+  const problem = problemInput.value.trim();
 
   if (!problem) {
 
-    showToast(
-      "Digite um problema primeiro."
-    );
+    showToast("Escreve um problema primeiro.");
+
+    problemInput.focus();
 
     return;
-
   }
 
 
-  state.currentProblem =
-    problem;
-
-
-  showLoading(true);
+  setLoading(true);
 
 
   try {
 
-    const response =
-      await fetch(
-        "/api/solve",
-        {
-          method: "POST",
+    const response = await fetch("/api/solve", {
 
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
+      method: "POST",
 
-          body: JSON.stringify({
+      headers: {
+        "Content-Type": "application/json"
+      },
 
-            problem,
+      body: JSON.stringify({
+        problem,
+        subject: state.subject
+      })
 
-            subject:
-              state.subject
-
-          })
-
-        }
-      );
+    });
 
 
-    let data;
-
-    try {
-
-      data =
-        await response.json();
-
-    } catch {
-
-      throw new Error(
-        "O servidor enviou uma resposta inválida."
-      );
-
-    }
+    const data = await response.json();
 
 
-    console.log(
-      "EinsteinWeb:",
-      data
-    );
-
-
-    if (!response.ok) {
+    if (!response.ok || !data.success) {
 
       throw new Error(
         data.error ||
-        "Erro no servidor."
+        "Não foi possível encontrar o problema."
       );
 
     }
 
 
-    if (!data.success) {
-
-      throw new Error(
-        data.error ||
-        "Não foi possível resolver o problema."
-      );
-
-    }
+    state.currentProblem = problem;
+    state.currentResult = data.result;
 
 
-    state.currentResult =
-      data;
-
-
-    renderSolution(data);
-
-    saveHistory(
+    addHistory({
       problem,
-      data
+      subject: state.subject,
+      result: data.result,
+      timestamp: Date.now()
+    });
+
+
+    renderSolution(
+      problem,
+      state.subject,
+      data.result
     );
 
 
-    showPage(
-      "solutionPage"
-    );
-
-
-    switchSolutionTab(
-      "solution"
-    );
-
+    showPage("solution");
 
   } catch (error) {
 
-    console.error(
-      "Erro:",
-      error
-    );
+    console.error("EinsteinWeb solve error:", error);
 
     showToast(
       error.message ||
-      "Erro ao resolver."
+      "Não foi possível resolver o problema."
     );
 
   } finally {
 
-    showLoading(false);
+    setLoading(false);
 
   }
-
-}
-
-
-if (solveBtn) {
-
-  solveBtn.addEventListener(
-    "click",
-    solveProblem
-  );
 
 }
 
 
 /* =========================================================
-   CTRL + ENTER
+   RENDER SOLUTION
 ========================================================= */
 
-if (problemInput) {
+function renderSolution(problem, subject, result) {
 
-  problemInput.addEventListener(
-    "keydown",
-    event => {
+  $("solutionSubject").textContent =
+    SUBJECTS[subject]?.name || subject;
 
-      if (
-        event.key === "Enter" &&
-        event.ctrlKey
-      ) {
+  $("solutionProblem").textContent = problem;
 
-        event.preventDefault();
+  $("answerValue").textContent =
+    result?.answer ?? "Sem resposta";
 
-        solveProblem();
+  renderSteps(result);
+  renderMethods(result);
+  renderGraph(result);
+  renderLearning(result);
 
-      }
+  updateFavoriteButton(problem);
 
-    }
-  );
-
+  activateTab("solution");
 }
 
 
 /* =========================================================
-   SOLUÇÃO
+   STEPS
 ========================================================= */
 
-function renderSolution(data) {
+function renderSteps(result) {
 
-  if (solutionProblem) {
+  const container = $("stepsContainer");
 
-    solutionProblem.textContent =
-      data.problem ||
-      state.currentProblem;
-
-  }
+  container.innerHTML = "";
 
 
-  if (solutionSubject) {
-
-    solutionSubject.textContent =
-      state.subjectName;
-
-  }
+  const steps = Array.isArray(result?.steps)
+    ? result.steps
+    : [];
 
 
-  if (solutionTitle) {
+  if (!steps.length) {
 
-    solutionTitle.textContent =
-      data.title ||
-      "Resolução passo a passo";
-
-  }
-
-
-  renderSteps(data);
-
-  renderMethods(data);
-
-  renderMethodsPreview(data);
-
-  renderGraph(data);
-
-  renderLearning(data);
-
-}
-
-
-/* =========================================================
-   PASSOS
-========================================================= */
-
-function renderSteps(data) {
-
-  if (!stepsContainer) return;
-
-  stepsContainer.innerHTML = "";
-
-
-  if (
-    !Array.isArray(data.steps) ||
-    data.steps.length === 0
-  ) {
-
-    stepsContainer.innerHTML = `
-
+    container.innerHTML = `
       <div class="empty-state">
-        Nenhum passo encontrado.
+        <span>?</span>
+        <p>
+          O motor encontrou uma resposta,
+          mas ainda não possui uma explicação detalhada
+          para este tipo de problema.
+        </p>
       </div>
-
     `;
 
     return;
-
   }
 
 
-  data.steps.forEach(
-    (step, index) => {
+  steps.forEach((step, index) => {
 
-      const card =
-        document.createElement("div");
+    const card = document.createElement("div");
 
-
-      card.className =
-        "solution-step";
+    card.className = "step-card";
 
 
-      const title =
-        step.title ||
-        `Passo ${index + 1}`;
+    const number = document.createElement("div");
+
+    number.className = "step-number";
+
+    number.textContent = index + 1;
 
 
-      const explanation =
-        step.explanation || "";
+    const content = document.createElement("div");
+
+    content.className = "step-content";
 
 
-      const formula =
-        step.formula || "";
+    const title = document.createElement("strong");
+
+    title.textContent =
+      step.title ||
+      `Passo ${index + 1}`;
 
 
-      card.innerHTML = `
+    const description = document.createElement("p");
 
-        <div class="step-number">
-          ${index + 1}
-        </div>
-
-        <div class="step-content">
-
-          <h3>
-            ${escapeHTML(title)}
-          </h3>
-
-          ${
-            explanation
-              ? `
-                <p>
-                  ${escapeHTML(
-                    explanation
-                  )}
-                </p>
-              `
-              : ""
-          }
-
-          ${
-            formula
-              ? `
-                <div class="formula">
-                  ${escapeHTML(formula)}
-                </div>
-              `
-              : ""
-          }
-
-        </div>
-
-      `;
+    description.textContent =
+      step.description ||
+      step.text ||
+      "";
 
 
-      stepsContainer.appendChild(card);
+    content.appendChild(title);
+
+    content.appendChild(description);
+
+
+    if (step.formula) {
+
+      const formula = document.createElement("code");
+
+      formula.className = "formula";
+
+      formula.textContent = step.formula;
+
+      content.appendChild(formula);
 
     }
-  );
 
 
-  if (
-    Array.isArray(data.solutions) &&
-    data.solutions.length > 0
-  ) {
+    card.appendChild(number);
+    card.appendChild(content);
 
-    const result =
-      document.createElement("div");
+    container.appendChild(card);
 
-
-    result.className =
-      "final-result";
-
-
-    const values =
-      data.solutions
-        .map(
-          (value, index) => {
-
-            const label =
-              data.solutions.length > 1
-                ? `x${index + 1}`
-                : "x";
-
-            return `
-              ${label} = ${formatNumber(value)}
-            `;
-
-          }
-        )
-        .join("<br>");
-
-
-    result.innerHTML = `
-
-      <div class="result-label">
-        RESULTADO
-      </div>
-
-      <div class="result-value">
-        ${values}
-      </div>
-
-    `;
-
-
-    stepsContainer.appendChild(
-      result
-    );
-
-  }
+  });
 
 }
 
 
 /* =========================================================
-   MÉTODOS
+   METHODS
 ========================================================= */
 
-function renderMethods(data) {
+function renderMethods(result) {
 
-  if (!methodsContainer) return;
+  const container = $("methodsContainer");
 
-  methodsContainer.innerHTML = "";
+  container.innerHTML = "";
 
 
-  if (
-    !Array.isArray(data.methods) ||
-    data.methods.length === 0
-  ) {
+  const methods = Array.isArray(result?.methods)
+    ? result.methods
+    : [];
 
-    methodsContainer.innerHTML = `
 
+  if (!methods.length) {
+
+    container.innerHTML = `
       <div class="empty-state">
-        Nenhum método alternativo encontrado.
+        <span>∑</span>
+        <p>
+          Ainda não existem métodos alternativos
+          para este tipo de problema.
+        </p>
       </div>
-
     `;
 
     return;
-
   }
 
 
-  data.methods.forEach(
-    method => {
+  methods.forEach(method => {
 
-      const card =
-        document.createElement("div");
+    const card = document.createElement("div");
 
-
-      card.className =
-        "method-item";
+    card.className = "method-card";
 
 
-      card.innerHTML = `
+    const title = document.createElement("h3");
 
-        <div class="method-name">
-          ${escapeHTML(
-            method.name ||
-            "Método"
-          )}
-        </div>
-
-        ${
-          method.description
-            ? `
-              <p>
-                ${escapeHTML(
-                  method.description
-                )}
-              </p>
-            `
-            : ""
-        }
-
-        <div class="method-steps">
-
-          ${
-            Array.isArray(method.steps)
-              ? method.steps
-                  .map(
-                    (step, index) => `
-
-                      <div class="method-step">
-
-                        <span>
-                          ${index + 1}
-                        </span>
-
-                        <p>
-                          ${escapeHTML(step)}
-                        </p>
-
-                      </div>
-
-                    `
-                  )
-                  .join("")
-              : ""
-          }
-
-        </div>
-
-      `;
+    title.textContent =
+      method.name ||
+      "Método";
 
 
-      methodsContainer.appendChild(
-        card
-      );
+    const description = document.createElement("p");
+
+    description.textContent =
+      method.description ||
+      "";
+
+
+    card.appendChild(title);
+    card.appendChild(description);
+
+
+    if (method.result) {
+
+      const result = document.createElement("div");
+
+      result.className = "method-result";
+
+      result.textContent =
+        `Resultado: ${method.result}`;
+
+      card.appendChild(result);
 
     }
-  );
-
-}
 
 
-function renderMethodsPreview(data) {
+    container.appendChild(card);
 
-  if (!methodsPreview) return;
-
-  methodsPreview.innerHTML = "";
-
-
-  if (
-    !Array.isArray(data.methods) ||
-    data.methods.length === 0
-  ) {
-
-    methodsPreview.innerHTML = `
-
-      <div class="empty-state">
-        Nenhum método encontrado.
-      </div>
-
-    `;
-
-    return;
-
-  }
-
-
-  data.methods.forEach(
-    method => {
-
-      const item =
-        document.createElement("div");
-
-
-      item.className =
-        "method-item";
-
-
-      item.innerHTML = `
-
-        <div class="method-name">
-          ${escapeHTML(
-            method.name ||
-            "Método"
-          )}
-        </div>
-
-        ${
-          method.description
-            ? `
-              <p>
-                ${escapeHTML(
-                  method.description
-                )}
-              </p>
-            `
-            : ""
-        }
-
-      `;
-
-
-      methodsPreview.appendChild(
-        item
-      );
-
-    }
-  );
+  });
 
 }
 
 
 /* =========================================================
-   GRÁFICO
+   GRAPH
 ========================================================= */
 
-function renderGraph(data) {
+function resetGraph() {
 
-  if (!graphContainer) return;
+  $("graphContainer").innerHTML = `
+    <div class="graph-empty">
+      <div>📈</div>
+      <p>
+        O gráfico será mostrado aqui quando o problema
+        tiver uma representação visual.
+      </p>
+    </div>
+  `;
+
+}
+
+
+function renderGraph(result) {
+
+  const container = $("graphContainer");
+
+  container.innerHTML = "";
 
 
   if (
-    !data.graph ||
-    !Array.isArray(data.graph.points) ||
-    data.graph.points.length < 2
+    !result?.graph ||
+    !Array.isArray(result.graph.points) ||
+    result.graph.points.length < 2
   ) {
 
-    graphContainer.innerHTML = `
-
-      <div class="graph-empty">
-
-        Não há dados suficientes
-        para gerar um gráfico deste problema.
-
-      </div>
-
-    `;
+    resetGraph();
 
     return;
-
   }
 
 
-  const points =
-    data.graph.points;
+  const points = result.graph.points;
+
+  const width = 760;
+  const height = 400;
+
+  const padding = 50;
 
 
-  const width = 800;
-
-  const height = 450;
-
-  const padding = 55;
+  const xs = points.map(point => Number(point.x));
+  const ys = points.map(point => Number(point.y));
 
 
-  const xs =
-    points.map(
-      point => Number(point.x)
-    );
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
 
-  const ys =
-    points.map(
-      point => Number(point.y)
-    );
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
 
 
-  const minX =
-    Math.min(...xs);
-
-  const maxX =
-    Math.max(...xs);
-
-  const minY =
-    Math.min(...ys);
-
-  const maxY =
-    Math.max(...ys);
-
-
-  const rangeX =
-    maxX - minX || 1;
-
-  const rangeY =
-    maxY - minY || 1;
+  const rangeX = maxX - minX || 1;
+  const rangeY = maxY - minY || 1;
 
 
   function mapX(x) {
 
-    return (
-      padding +
-      (
-        (x - minX) /
-        rangeX
-      ) *
-      (width - padding * 2)
-    );
+    return padding +
+      ((x - minX) / rangeX) *
+      (width - padding * 2);
 
   }
 
 
   function mapY(y) {
 
-    return (
-      height -
+    return height -
       padding -
-      (
-        (y - minY) /
-        rangeY
-      ) *
-      (height - padding * 2)
-    );
+      ((y - minY) / rangeY) *
+      (height - padding * 2);
 
   }
 
 
   let path = "";
 
+  points.forEach((point, index) => {
 
-  points.forEach(
-    (point, index) => {
+    const x = mapX(point.x);
+    const y = mapY(point.y);
 
-      const x =
-        mapX(Number(point.x));
+    path +=
+      `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)} `;
 
-      const y =
-        mapY(Number(point.y));
+  });
 
 
-      path +=
-        `${index === 0 ? "M" : "L"} ${x} ${y} `;
+  const zeroX =
+    minX <= 0 && maxX >= 0
+      ? mapX(0)
+      : padding;
 
-    }
+
+  const zeroY =
+    minY <= 0 && maxY >= 0
+      ? mapY(0)
+      : height - padding;
+
+
+  const svg = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "svg"
   );
 
 
-  const axisX =
-    minX <= 0 &&
-    maxX >= 0
-      ? mapX(0)
-      : null;
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+  svg.classList.add("graph-svg");
 
 
-  const axisY =
-    minY <= 0 &&
-    maxY >= 0
-      ? mapY(0)
-      : null;
+  svg.innerHTML = `
+    <rect
+      x="0"
+      y="0"
+      width="${width}"
+      height="${height}"
+      rx="12"
+      fill="#0c0c0c"
+    />
 
+    <line
+      x1="${padding}"
+      y1="${zeroY}"
+      x2="${width - padding}"
+      y2="${zeroY}"
+      stroke="#303030"
+      stroke-width="1"
+    />
 
-  let rootsHTML = "";
+    <line
+      x1="${zeroX}"
+      y1="${padding}"
+      x2="${zeroX}"
+      y2="${height - padding}"
+      stroke="#303030"
+      stroke-width="1"
+    />
 
-
-  if (
-    Array.isArray(data.graph.roots)
-  ) {
-
-    rootsHTML =
-      data.graph.roots
-        .map(root => {
-
-          const numericRoot =
-            Number(root);
-
-
-          if (
-            numericRoot < minX ||
-            numericRoot > maxX
-          ) {
-
-            return "";
-
-          }
-
-
-          return `
-
-            <circle
-              cx="${mapX(numericRoot)}"
-              cy="${mapY(0)}"
-              r="7"
-              class="graph-root"
-            />
-
-          `;
-
-        })
-        .join("");
-
-  }
-
-
-  graphContainer.innerHTML = `
-
-    <div class="graph-title">
-      ${escapeHTML(
-        data.graph.title ||
-        "Representação gráfica"
-      )}
-    </div>
-
-
-    <svg
-      viewBox="0 0 ${width} ${height}"
-      class="math-graph"
-      role="img"
-      aria-label="Gráfico da função"
-    >
-
-
-      ${
-        axisY !== null
-          ? `
-
-            <line
-              x1="${padding}"
-              y1="${axisY}"
-              x2="${width - padding}"
-              y2="${axisY}"
-              class="graph-axis"
-            />
-
-          `
-          : ""
-      }
-
-
-      ${
-        axisX !== null
-          ? `
-
-            <line
-              x1="${axisX}"
-              y1="${padding}"
-              x2="${axisX}"
-              y2="${height - padding}"
-              class="graph-axis"
-            />
-
-          `
-          : ""
-      }
-
-
-      <path
-        d="${path}"
-        class="graph-line"
-        fill="none"
-      />
-
-
-      ${rootsHTML}
-
-    </svg>
-
-
-    ${
-      data.graph.vertex
-        ? `
-
-          <div class="graph-info">
-
-            Vértice:
-            (
-            ${formatNumber(
-              data.graph.vertex.x
-            )},
-            ${formatNumber(
-              data.graph.vertex.y
-            )}
-            )
-
-          </div>
-
-        `
-        : ""
-    }
-
+    <path
+      d="${path}"
+      fill="none"
+      stroke="#ffffff"
+      stroke-width="3"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
   `;
+
+
+  container.appendChild(svg);
 
 }
 
 
 /* =========================================================
-   APRENDER
+   LEARNING
 ========================================================= */
 
-function renderLearning(data) {
+function renderLearning(result) {
 
-  if (!learningContent) return;
+  const container = $("learningContainer");
 
-
-  const text =
-    data.learning ||
-    data.explanation ||
-    "Nenhuma explicação adicional disponível.";
+  container.innerHTML = "";
 
 
-  learningContent.innerHTML = `
+  const learning = result?.learning;
 
-    <p>
-      ${escapeHTML(text)}
-    </p>
 
-  `;
+  if (!learning) {
+
+    container.innerHTML = `
+      <div class="empty-state">
+        <span>?</span>
+        <p>
+          Ainda não existe conteúdo educativo adicional
+          para este problema.
+        </p>
+      </div>
+    `;
+
+    return;
+  }
+
+
+  if (learning.concept) {
+
+    addLearningCard(
+      container,
+      "Conceito",
+      learning.concept
+    );
+
+  }
+
+
+  if (learning.explanation) {
+
+    addLearningCard(
+      container,
+      "Por que fazemos isto?",
+      learning.explanation
+    );
+
+  }
+
+
+  if (learning.tip) {
+
+    addLearningCard(
+      container,
+      "Dica",
+      learning.tip
+    );
+
+  }
+
+}
+
+
+function addLearningCard(container, title, text) {
+
+  const card = document.createElement("div");
+
+  card.className = "learning-card";
+
+
+  const heading = document.createElement("h3");
+
+  heading.textContent = title;
+
+
+  const paragraph = document.createElement("p");
+
+  paragraph.textContent = text;
+
+
+  card.appendChild(heading);
+
+  card.appendChild(paragraph);
+
+  container.appendChild(card);
 
 }
 
@@ -1415,429 +875,534 @@ function renderLearning(data) {
    TABS
 ========================================================= */
 
-function switchSolutionTab(tabName) {
+document.querySelectorAll(".solution-tab").forEach(button => {
 
-  document
-    .querySelectorAll(".solution-tab")
-    .forEach(tab => {
+  button.addEventListener("click", () => {
 
-      tab.classList.toggle(
-        "active",
-        tab.dataset.tab === tabName
-      );
+    activateTab(button.dataset.tab);
 
-    });
+  });
+
+});
 
 
-  document
-    .querySelectorAll(".solution-tab-content")
-    .forEach(content => {
+function activateTab(tabName) {
 
-      content.classList.remove("active");
+  document.querySelectorAll(".solution-tab").forEach(button => {
 
-    });
-
-
-  const target =
-    document.getElementById(
-      `${tabName}Tab`
-    );
-
-
-  if (target) {
-    target.classList.add("active");
-  }
-
-}
-
-
-document
-  .querySelectorAll(".solution-tab")
-  .forEach(tab => {
-
-    tab.addEventListener(
-      "click",
-      () => {
-
-        switchSolutionTab(
-          tab.dataset.tab
-        );
-
-      }
+    button.classList.toggle(
+      "active",
+      button.dataset.tab === tabName
     );
 
   });
 
 
-/* =========================================================
-   HISTÓRICO
-========================================================= */
-
-function saveHistory(
-  problem,
-  result
-) {
-
-  const item = {
-
-    id: Date.now(),
-
-    problem,
-
-    result,
-
-    date:
-      new Date().toLocaleString(
-        "pt-PT"
-      ),
-
-    favorite: false
-
+  const tabMap = {
+    solution: $("solutionTab"),
+    methods: $("methodsTab"),
+    graph: $("graphTab"),
+    learn: $("learnTab")
   };
 
 
-  state.history.unshift(item);
+  Object.values(tabMap).forEach(tab => {
+
+    tab?.classList.remove("active");
+
+  });
 
 
-  state.history =
-    state.history.slice(
-      0,
-      30
-    );
+  tabMap[tabName]?.classList.add("active");
 
+}
+
+
+/* =========================================================
+   BACK
+========================================================= */
+
+$("backBtn")?.addEventListener("click", () => {
+  showPage("home");
+});
+
+
+/* =========================================================
+   HISTORY
+========================================================= */
+
+function saveHistory() {
 
   localStorage.setItem(
     "einsteinHistory",
-    JSON.stringify(
-      state.history
-    )
+    JSON.stringify(state.history)
   );
 
+}
+
+
+function addHistory(item) {
+
+  state.history.unshift(item);
+
+  state.history =
+    state.history.slice(0, 50);
+
+  saveHistory();
 
   renderRecent();
 
 }
 
 
-function openHistoryItem(item) {
-
-  if (!item) return;
-
-
-  state.currentProblem =
-    item.problem;
-
-
-  state.currentResult =
-    item.result;
-
-
-  renderSolution(
-    item.result
-  );
-
-
-  showPage(
-    "solutionPage"
-  );
-
-
-  switchSolutionTab(
-    "solution"
-  );
-
-}
-
-
 function renderRecent() {
 
-  if (!recentList) return;
+  const container = $("recentList");
+
+  if (!container) {
+    return;
+  }
 
 
   if (!state.history.length) {
 
-    recentList.innerHTML = `
-
+    container.innerHTML = `
       <div class="empty-state">
-
-        <div>∑</div>
-
-        <span>
-          Os seus problemas resolvidos
-          aparecerão aqui.
-        </span>
-
+        <span>◷</span>
+        <p>
+          Os seus problemas recentes aparecerão aqui.
+        </p>
       </div>
-
     `;
 
     return;
-
   }
 
 
-  recentList.innerHTML =
-    state.history
-      .slice(0, 5)
-      .map(
-        item => `
-
-          <button
-            class="history-item"
-            data-history-id="${item.id}"
-          >
-
-            <strong>
-              ${escapeHTML(
-                item.problem
-              )}
-            </strong>
-
-            <small>
-              ${escapeHTML(
-                item.date
-              )}
-            </small>
-
-          </button>
-
-        `
-      )
-      .join("");
+  container.innerHTML = "";
 
 
-  recentList
-    .querySelectorAll(
-      "[data-history-id]"
-    )
-    .forEach(button => {
+  state.history
+    .slice(0, 5)
+    .forEach((item, index) => {
 
-      button.addEventListener(
-        "click",
-        () => {
-
-          const item =
-            state.history.find(
-              historyItem =>
-                String(
-                  historyItem.id
-                ) ===
-                String(
-                  button.dataset.historyId
-                )
-            );
-
-
-          openHistoryItem(item);
-
-        }
+      container.appendChild(
+        createHistoryItem(item, index)
       );
 
     });
 
 }
 
-
-/* =========================================================
-   HISTÓRICO COMPLETO
-========================================================= */
 
 function renderHistory() {
 
-  if (!historyContainer) return;
+  const container = $("historyContainer");
+
+  if (!container) {
+    return;
+  }
 
 
   if (!state.history.length) {
 
-    historyContainer.innerHTML = `
-
-      <div class="empty-large">
-
-        <div class="empty-large-icon">
-          ◷
-        </div>
-
-        <h2>
-          Nenhum problema ainda
-        </h2>
-
+    container.innerHTML = `
+      <div class="empty-state large">
+        <span>◷</span>
         <p>
-          Resolva o seu primeiro problema
-          para começar o histórico.
+          Ainda não resolveste nenhum problema.
         </p>
-
-        <button
-          class="primary-btn"
-          id="historyNewProblem"
-        >
-          Resolver problema
-        </button>
-
       </div>
-
     `;
 
-
-    const button =
-      document.getElementById(
-        "historyNewProblem"
-      );
-
-
-    if (button) {
-      button.addEventListener(
-        "click",
-        newProblem
-      );
-    }
-
-
     return;
-
   }
 
 
-  historyContainer.innerHTML =
-    state.history
-      .map(
-        item => `
-
-          <button
-            class="history-item"
-            data-history-id="${item.id}"
-          >
-
-            <strong>
-              ${escapeHTML(
-                item.problem
-              )}
-            </strong>
-
-            <small>
-              ${escapeHTML(
-                item.date
-              )}
-            </small>
-
-          </button>
-
-        `
-      )
-      .join("");
+  container.innerHTML = "";
 
 
-  historyContainer
-    .querySelectorAll(
-      "[data-history-id]"
-    )
-    .forEach(button => {
+  state.history.forEach((item, index) => {
 
-      button.addEventListener(
-        "click",
-        () => {
-
-          const item =
-            state.history.find(
-              historyItem =>
-                String(
-                  historyItem.id
-                ) ===
-                String(
-                  button.dataset.historyId
-                )
-            );
-
-
-          openHistoryItem(item);
-
-        }
-      );
-
-    });
-
-}
-
-
-/* =========================================================
-   NAVEGAÇÃO
-========================================================= */
-
-if (backBtn) {
-
-  backBtn.addEventListener(
-    "click",
-    () => {
-
-      showPage(
-        "homePage"
-      );
-
-    }
-  );
-
-}
-
-
-if (viewHistory) {
-
-  viewHistory.addEventListener(
-    "click",
-    () => {
-
-      renderHistory();
-
-      showPage(
-        "historyPage"
-      );
-
-    }
-  );
-
-}
-
-
-document
-  .querySelectorAll(
-    ".nav-item[data-page]"
-  )
-  .forEach(item => {
-
-    item.addEventListener(
-      "click",
-      () => {
-
-        const page =
-          item.dataset.page;
-
-        if (page === "history") {
-
-          renderHistory();
-
-        }
-
-        showPage(
-          `${page}Page`
-        );
-
-      }
+    container.appendChild(
+      createHistoryItem(item, index)
     );
 
   });
 
+}
+
+
+function createHistoryItem(item) {
+
+  const div = document.createElement("div");
+
+  div.className = "history-item";
+
+
+  const subject = SUBJECTS[item.subject] ||
+    SUBJECTS.math;
+
+
+  div.innerHTML = `
+    <div class="history-subject">
+      ${subject.symbol}
+    </div>
+
+    <div class="history-content">
+
+      <strong></strong>
+
+      <span>
+        ${subject.name}
+        •
+        ${formatDate(item.timestamp)}
+      </span>
+
+    </div>
+
+    <div class="history-arrow">
+      →
+    </div>
+  `;
+
+
+  div.querySelector("strong").textContent =
+    item.problem;
+
+
+  div.addEventListener("click", () => {
+
+    state.currentProblem = item.problem;
+    state.currentResult = item.result;
+    state.subject = item.subject;
+
+    renderSolution(
+      item.problem,
+      item.subject,
+      item.result
+    );
+
+    showPage("solution");
+
+  });
+
+
+  return div;
+
+}
+
+
+$("viewHistory")?.addEventListener("click", () => {
+
+  renderHistory();
+
+  showPage("history");
+
+});
+
+
+function formatDate(timestamp) {
+
+  if (!timestamp) {
+    return "agora";
+  }
+
+  const date = new Date(timestamp);
+
+  return date.toLocaleDateString(
+    "pt-PT",
+    {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric"
+    }
+  );
+
+}
+
 
 /* =========================================================
-   INICIALIZAÇÃO
+   FAVORITES
+========================================================= */
+
+function saveFavorites() {
+
+  localStorage.setItem(
+    "einsteinFavorites",
+    JSON.stringify(state.favorites)
+  );
+
+}
+
+
+$("favoriteBtn")?.addEventListener("click", () => {
+
+  if (!state.currentProblem) {
+    return;
+  }
+
+
+  const existingIndex =
+    state.favorites.findIndex(
+      item =>
+        item.problem === state.currentProblem
+    );
+
+
+  if (existingIndex >= 0) {
+
+    state.favorites.splice(existingIndex, 1);
+
+    showToast("Removido dos favoritos.");
+
+  } else {
+
+    state.favorites.unshift({
+
+      problem: state.currentProblem,
+
+      subject: state.subject,
+
+      result: state.currentResult,
+
+      timestamp: Date.now()
+
+    });
+
+    showToast("Adicionado aos favoritos.");
+
+  }
+
+
+  saveFavorites();
+
+  updateFavoriteButton(
+    state.currentProblem
+  );
+
+});
+
+
+function updateFavoriteButton(problem) {
+
+  const exists =
+    state.favorites.some(
+      item => item.problem === problem
+    );
+
+
+  const button = $("favoriteBtn");
+
+  if (!button) {
+    return;
+  }
+
+
+  button.textContent =
+    exists ? "★" : "☆";
+
+
+  button.classList.toggle(
+    "saved",
+    exists
+  );
+
+}
+
+
+function renderFavorites() {
+
+  const container =
+    $("favoritesContainer");
+
+
+  if (!container) {
+    return;
+  }
+
+
+  if (!state.favorites.length) {
+
+    container.innerHTML = `
+      <div class="empty-state large">
+        <span>☆</span>
+        <p>
+          Ainda não tens problemas favoritos.
+        </p>
+      </div>
+    `;
+
+    return;
+  }
+
+
+  container.innerHTML = "";
+
+
+  state.favorites.forEach(item => {
+
+    container.appendChild(
+      createHistoryItem(item)
+    );
+
+  });
+
+}
+
+
+/* =========================================================
+   LOADING
+========================================================= */
+
+function setLoading(value) {
+
+  loadingOverlay.classList.toggle(
+    "hidden",
+    !value
+  );
+
+  solveBtn.disabled = value;
+
+}
+
+
+/* =========================================================
+   TOAST
+========================================================= */
+
+let toastTimer = null;
+
+
+function showToast(message) {
+
+  toastText.textContent = message;
+
+  toast.classList.add("show");
+
+
+  clearTimeout(toastTimer);
+
+
+  toastTimer = setTimeout(() => {
+
+    toast.classList.remove("show");
+
+  }, 3500);
+
+}
+
+
+/* =========================================================
+   VOICE
+========================================================= */
+
+$("voiceBtn")?.addEventListener("click", () => {
+
+  const SpeechRecognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+
+  if (!SpeechRecognition) {
+
+    showToast(
+      "O reconhecimento de voz não é suportado neste navegador."
+    );
+
+    return;
+  }
+
+
+  const recognition =
+    new SpeechRecognition();
+
+
+  recognition.lang = "pt-PT";
+
+  recognition.interimResults = false;
+
+  recognition.maxAlternatives = 1;
+
+
+  showToast("A ouvir...");
+
+
+  recognition.start();
+
+
+  recognition.onresult = event => {
+
+    const text =
+      event.results[0][0].transcript;
+
+
+    problemInput.value =
+      problemInput.value
+        ? `${problemInput.value} ${text}`
+        : text;
+
+  };
+
+
+  recognition.onerror = () => {
+
+    showToast(
+      "Não foi possível utilizar o microfone."
+    );
+
+  };
+
+});
+
+
+/* =========================================================
+   INITIALIZATION
 ========================================================= */
 
 setSubject("math");
 
 renderRecent();
 
-showPage("homePage");
+renderHistory();
 
-switchSolutionTab("solution");
+renderFavorites();
+
+showPage("home");
 
 
-console.log(
-  "EinsteinWeb V0.3 carregado."
-);
+/* =========================================================
+   STATUS CHECK
+========================================================= */
+
+async function checkServer() {
+
+  try {
+
+    const response =
+      await fetch("/api/status");
+
+    if (!response.ok) {
+      throw new Error();
+    }
+
+    const data =
+      await response.json();
+
+    console.log(
+      "EinsteinWeb:",
+      data
+    );
+
+  } catch (error) {
+
+    console.warn(
+      "EinsteinWeb server status unavailable."
+    );
+
+  }
+
+}
+
+
+checkServer();
