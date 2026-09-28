@@ -1,421 +1,955 @@
 /* =========================================================
-   EINSTEINWEB V0.4
-   Frontend
+   EINSTEINWEB
+   Einstein Keyboard V0.5
 ========================================================= */
 
-const state = {
-  subject: "math",
-  currentResult: null,
-  currentProblem: "",
-  history: JSON.parse(localStorage.getItem("einsteinHistory") || "[]"),
-  favorites: JSON.parse(localStorage.getItem("einsteinFavorites") || "[]")
-};
+let currentSubject = "math";
+
+let expression = "";
+
+let cursorPosition = 0;
+
+let history = [];
+
+let currentKeyboardCategory = "basic";
 
 
 /* =========================================================
    DOM
 ========================================================= */
 
-const $ = (id) => document.getElementById(id);
+const problemDisplay =
+  document.getElementById("problemDisplay");
 
-const sidebar = $("sidebar");
-const mobileMenu = $("mobileMenu");
+const keyboard =
+  document.getElementById("keyboard");
 
-const homePage = $("homePage");
-const solutionPage = $("solutionPage");
-const historyPage = $("historyPage");
-const favoritesPage = $("favoritesPage");
+const keyboardTabs =
+  document.getElementById("keyboardTabs");
 
-const problemInput = $("problemInput");
-const solveBtn = $("solveBtn");
+const solveBtn =
+  document.getElementById("solveBtn");
 
-const subjectSelector = $("subjectSelector");
-const subjectSelectorText = $("subjectSelectorText");
-const selectedSubject = $("selectedSubject");
-const subjectMenu = $("subjectMenu");
+const clearAll =
+  document.getElementById("clearAll");
 
-const imageBtn = $("imageBtn");
-const imageInput = $("imageInput");
-const imagePreview = $("imagePreview");
+const undoBtn =
+  document.getElementById("undoBtn");
 
-const loadingOverlay = $("loadingOverlay");
+const cursorLeft =
+  document.getElementById("cursorLeft");
 
-const toast = $("toast");
-const toastText = $("toastText");
+const cursorRight =
+  document.getElementById("cursorRight");
+
+const backspaceBtn =
+  document.getElementById("backspaceBtn");
+
+const resultSection =
+  document.getElementById("resultSection");
+
+const resultAnswer =
+  document.getElementById("resultAnswer");
+
+const stepsContainer =
+  document.getElementById("stepsContainer");
+
+const methodsContainer =
+  document.getElementById("methodsContainer");
+
+const learningContainer =
+  document.getElementById("learningContainer");
+
+const graphContainer =
+  document.getElementById("graphContainer");
+
+const graphCanvas =
+  document.getElementById("graphCanvas");
+
+const errorBox =
+  document.getElementById("errorBox");
+
+const calculatorTitle =
+  document.getElementById("calculatorTitle");
+
+const calculatorSubtitle =
+  document.getElementById("calculatorSubtitle");
 
 
 /* =========================================================
-   SUBJECTS
+   KEYBOARDS
 ========================================================= */
 
-const SUBJECTS = {
+const keyboards = {
+
   math: {
-    name: "Matemática",
-    symbol: "∑"
+
+    tabs: [
+      ["basic", "123"],
+      ["algebra", "f(x)"],
+      ["functions", "sin"],
+      ["advanced", "√ π"]
+    ],
+
+    basic: [
+
+      ["(", "insert", "special"],
+      [")", "insert", "special"],
+      ["7", "insert"],
+      ["8", "insert"],
+      ["9", "insert"],
+      ["÷", "insert", "operator"],
+
+      ["⌫", "backspace", "special"],
+      ["√(", "insert", "special"],
+      ["4", "insert"],
+      ["5", "insert"],
+      ["6", "insert"],
+      ["×", "insert", "operator"],
+
+      ["x", "insert", "special"],
+      ["x²", "insert", "special"],
+      ["1", "insert"],
+      ["2", "insert"],
+      ["3", "insert"],
+      ["−", "insert", "operator"],
+
+      ["π", "insert", "special"],
+      ["%", "insert", "special"],
+      ["0", "insert"],
+      [",", "insert"],
+      ["=", "insert", "primary"],
+      ["+", "insert", "operator"]
+
+    ],
+
+    algebra: [
+
+      ["x", "insert", "special"],
+      ["y", "insert", "special"],
+      ["a", "insert", "special"],
+      ["b", "insert", "special"],
+      ["c", "insert", "special"],
+
+      ["x²", "insert", "special"],
+      ["x³", "insert", "special"],
+      ["xⁿ", "insert", "special"],
+      ["√(", "insert", "special"],
+      ["|x|", "insert", "special"],
+
+      ["(", "insert"],
+      [")", "insert"],
+      ["=", "insert", "primary"],
+      ["+", "insert", "operator"],
+      ["−", "insert", "operator"],
+
+      ["×", "insert", "operator"],
+      ["÷", "insert", "operator"],
+      ["^", "insert", "operator"],
+      ["%", "insert", "special"],
+      ["π", "insert", "special"]
+
+    ],
+
+    functions: [
+
+      ["sin(", "insert", "special"],
+      ["cos(", "insert", "special"],
+      ["tan(", "insert", "special"],
+      ["log(", "insert", "special"],
+      ["ln(", "insert", "special"],
+
+      ["asin(", "insert", "small"],
+      ["acos(", "insert", "small"],
+      ["atan(", "insert", "small"],
+      ["exp(", "insert", "small"],
+      ["abs(", "insert", "small"],
+
+      ["(", "insert"],
+      [")", "insert"],
+      ["π", "insert", "special"],
+      ["e", "insert", "special"],
+      ["=", "insert", "primary"]
+
+    ],
+
+    advanced: [
+
+      ["√(", "insert", "special"],
+      ["∛(", "insert", "special"],
+      ["π", "insert", "special"],
+      ["e", "insert", "special"],
+      ["∞", "insert", "special"],
+
+      ["^", "insert", "operator"],
+      ["²", "insert", "special"],
+      ["³", "insert", "special"],
+      ["%", "insert", "special"],
+      ["!", "insert", "special"],
+
+      ["(", "insert"],
+      [")", "insert"],
+      ["+", "insert", "operator"],
+      ["−", "insert", "operator"],
+      ["×", "insert", "operator"],
+
+      ["÷", "insert", "operator"],
+      ["=", "insert", "primary"]
+    ]
+
   },
+
 
   physics: {
-    name: "Física",
-    symbol: "⚡"
+
+    tabs: [
+      ["basic", "123"],
+      ["variables", "Grandezas"],
+      ["units", "Unidades"],
+      ["formulas", "Fórmulas"]
+    ],
+
+    basic: [
+
+      ["(", "insert", "special"],
+      [")", "insert", "special"],
+      ["7", "insert"],
+      ["8", "insert"],
+      ["9", "insert"],
+      ["÷", "insert", "operator"],
+
+      ["⌫", "backspace", "special"],
+      ["√", "insert", "special"],
+      ["4", "insert"],
+      ["5", "insert"],
+      ["6", "insert"],
+      ["×", "insert", "operator"],
+
+      ["1", "insert"],
+      ["2", "insert"],
+      ["3", "insert"],
+      ["−", "insert", "operator"],
+      ["=", "insert", "primary"],
+
+      ["0", "insert"],
+      [",", "insert"],
+      ["+", "insert", "operator"],
+      ["%", "insert", "special"],
+      ["^", "insert", "operator"]
+
+    ],
+
+    variables: [
+
+      ["v", "insert", "special"],
+      ["d", "insert", "special"],
+      ["t", "insert", "special"],
+      ["m", "insert", "special"],
+      ["a", "insert", "special"],
+
+      ["F", "insert", "special"],
+      ["P", "insert", "special"],
+      ["V", "insert", "special"],
+      ["I", "insert", "special"],
+      ["R", "insert", "special"],
+
+      ["ρ", "insert", "special"],
+      ["E", "insert", "special"],
+      ["Q", "insert", "special"],
+      ["W", "insert", "special"],
+      ["g", "insert", "special"],
+
+      ["θ", "insert", "special"],
+      ["λ", "insert", "special"],
+      ["f", "insert", "special"],
+      ["T", "insert", "special"],
+      ["η", "insert", "special"]
+
+    ],
+
+    units: [
+
+      ["m", "insert", "special"],
+      ["km", "insert", "special"],
+      ["cm", "insert", "special"],
+      ["mm", "insert", "special"],
+      ["s", "insert", "special"],
+
+      ["min", "insert", "special"],
+      ["h", "insert", "special"],
+      ["kg", "insert", "special"],
+      ["g", "insert", "special"],
+      ["N", "insert", "special"],
+
+      ["J", "insert", "special"],
+      ["W", "insert", "special"],
+      ["Pa", "insert", "special"],
+      ["V", "insert", "special"],
+      ["A", "insert", "special"],
+
+      ["Ω", "insert", "special"],
+      ["Hz", "insert", "special"],
+      ["m/s", "insert", "small"],
+      ["m/s²", "insert", "small"],
+      ["kg/m³", "insert", "small"]
+
+    ],
+
+    formulas: [
+
+      ["v = d/t", "insert", "small"],
+      ["F = ma", "insert", "small"],
+      ["ρ = m/V", "insert", "small"],
+      ["P = VI", "insert", "small"],
+      ["V = RI", "insert", "small"],
+
+      ["E = mc²", "insert", "small"],
+      ["W = Fd", "insert", "small"],
+      ["P = W/t", "insert", "small"],
+      ["Q = mcΔT", "insert", "small"],
+      ["p = mv", "insert", "small"],
+
+      ["+", "insert", "operator"],
+      ["−", "insert", "operator"],
+      ["×", "insert", "operator"],
+      ["÷", "insert", "operator"],
+      ["=", "insert", "primary"]
+
+    ]
+
   },
 
+
   chemistry: {
-    name: "Química",
-    symbol: "⚗"
+
+    tabs: [
+      ["basic", "123"],
+      ["elements1", "Elementos"],
+      ["elements2", "Mais"],
+      ["chemistry", "Química"]
+    ],
+
+    basic: [
+
+      ["(", "insert", "special"],
+      [")", "insert", "special"],
+      ["7", "insert"],
+      ["8", "insert"],
+      ["9", "insert"],
+      ["+", "insert", "operator"],
+
+      ["⌫", "backspace", "special"],
+      ["→", "insert", "special"],
+      ["4", "insert"],
+      ["5", "insert"],
+      ["6", "insert"],
+      ["−", "insert", "operator"],
+
+      ["1", "insert"],
+      ["2", "insert"],
+      ["3", "insert"],
+      ["×", "insert", "operator"],
+      ["=", "insert", "primary"],
+
+      ["0", "insert"],
+      [".", "insert"],
+      ["mol", "insert", "special"],
+      ["g", "insert", "special"],
+      ["L", "insert", "special"]
+
+    ],
+
+    elements1: [
+
+      ["H", "insert", "special"],
+      ["He", "insert", "special"],
+      ["Li", "insert", "special"],
+      ["Be", "insert", "special"],
+      ["B", "insert", "special"],
+
+      ["C", "insert", "special"],
+      ["N", "insert", "special"],
+      ["O", "insert", "special"],
+      ["F", "insert", "special"],
+      ["Ne", "insert", "special"],
+
+      ["Na", "insert", "special"],
+      ["Mg", "insert", "special"],
+      ["Al", "insert", "special"],
+      ["Si", "insert", "special"],
+      ["P", "insert", "special"],
+
+      ["S", "insert", "special"],
+      ["Cl", "insert", "special"],
+      ["Ar", "insert", "special"],
+      ["K", "insert", "special"],
+      ["Ca", "insert", "special"]
+
+    ],
+
+    elements2: [
+
+      ["Sc", "insert", "special"],
+      ["Ti", "insert", "special"],
+      ["V", "insert", "special"],
+      ["Cr", "insert", "special"],
+      ["Mn", "insert", "special"],
+
+      ["Fe", "insert", "special"],
+      ["Co", "insert", "special"],
+      ["Ni", "insert", "special"],
+      ["Cu", "insert", "special"],
+      ["Zn", "insert", "special"],
+
+      ["Br", "insert", "special"],
+      ["Ag", "insert", "special"],
+      ["I", "insert", "special"],
+      ["Ba", "insert", "special"],
+      ["Au", "insert", "special"],
+
+      ["Hg", "insert", "special"],
+      ["Pb", "insert", "special"],
+      ["Al", "insert", "special"],
+      ["Si", "insert", "special"],
+      ["Ca", "insert", "special"]
+
+    ],
+
+    chemistry: [
+
+      ["H₂O", "insert", "small"],
+      ["CO₂", "insert", "small"],
+      ["O₂", "insert", "small"],
+      ["H₂", "insert", "small"],
+      ["N₂", "insert", "small"],
+
+      ["NaCl", "insert", "small"],
+      ["HCl", "insert", "small"],
+      ["H₂SO₄", "insert", "small"],
+      ["NaOH", "insert", "small"],
+      ["NH₃", "insert", "small"],
+
+      ["mol", "insert", "special"],
+      ["g", "insert", "special"],
+      ["kg", "insert", "special"],
+      ["L", "insert", "special"],
+      ["mL", "insert", "special"],
+
+      ["→", "insert", "special"],
+      ["⇌", "insert", "special"],
+      ["+", "insert", "operator"],
+      ["=", "insert", "primary"]
+    ]
+
   }
+
 };
 
 
-function setSubject(subject) {
+/* =========================================================
+   MODE INFORMATION
+========================================================= */
 
-  if (!SUBJECTS[subject]) {
-    subject = "math";
+const modeInfo = {
+
+  math: {
+    title: "Calculadora Matemática",
+    subtitle: "Use o teclado Einstein para escrever"
+  },
+
+  physics: {
+    title: "Calculadora de Física",
+    subtitle: "Grandezas, unidades e fórmulas"
+  },
+
+  chemistry: {
+    title: "Calculadora de Química",
+    subtitle: "Elementos, fórmulas e cálculos químicos"
   }
 
-  state.subject = subject;
+};
 
-  const data = SUBJECTS[subject];
 
-  subjectSelectorText.innerHTML = `
-    <span class="subject-symbol">${data.symbol}</span>
-    <span>${data.name}</span>
-    <span class="selector-arrow">⌄</span>
-  `;
+/* =========================================================
+   RENDER TABS
+========================================================= */
 
-  selectedSubject.textContent = data.name;
+function renderTabs() {
 
-  document.querySelectorAll(".subject-option").forEach(button => {
-    button.classList.toggle(
-      "active",
-      button.dataset.subject === subject
+  keyboardTabs.innerHTML = "";
+
+  const tabs =
+    keyboards[currentSubject].tabs;
+
+  tabs.forEach(tab => {
+
+    const button =
+      document.createElement("button");
+
+    button.className =
+      "keyboard-tab";
+
+    if (
+      tab[0] === currentKeyboardCategory
+    ) {
+      button.classList.add("active");
+    }
+
+    button.textContent =
+      tab[1];
+
+    button.addEventListener(
+      "click",
+      () => {
+
+        currentKeyboardCategory =
+          tab[0];
+
+        renderTabs();
+        renderKeyboard();
+
+      }
     );
+
+    keyboardTabs.appendChild(button);
+
   });
 
-  subjectSelector.classList.remove("open");
 }
 
 
 /* =========================================================
-   PAGE NAVIGATION
+   RENDER KEYBOARD
 ========================================================= */
 
-function showPage(pageName) {
+function renderKeyboard() {
 
-  document.querySelectorAll(".page").forEach(page => {
-    page.classList.remove("active-page");
+  keyboard.innerHTML = "";
+
+  const keys =
+    keyboards[currentSubject]
+      [currentKeyboardCategory];
+
+  if (!keys) return;
+
+  keys.forEach(keyData => {
+
+    const [
+      label,
+      action,
+      className
+    ] = keyData;
+
+    const button =
+      document.createElement("button");
+
+    button.className =
+      "key";
+
+    if (className) {
+
+      className
+        .split(" ")
+        .forEach(cls => {
+
+          button.classList.add(cls);
+
+        });
+
+    }
+
+    button.textContent =
+      label;
+
+    button.addEventListener(
+      "click",
+      () => {
+
+        handleKey(
+          label,
+          action
+        );
+
+      }
+    );
+
+    keyboard.appendChild(button);
+
   });
 
-  const pageMap = {
-    home: homePage,
-    solution: solutionPage,
-    history: historyPage,
-    favorites: favoritesPage
+}
+
+
+/* =========================================================
+   KEY HANDLER
+========================================================= */
+
+function handleKey(label, action) {
+
+  if (action === "backspace") {
+
+    backspace();
+
+    return;
+
+  }
+
+  if (action === "insert") {
+
+    insertText(
+      convertDisplayToExpression(label)
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   CONVERT DISPLAY SYMBOLS
+========================================================= */
+
+function convertDisplayToExpression(value) {
+
+  const replacements = {
+
+    "×": "*",
+    "÷": "/",
+    "−": "-",
+    "√(": "sqrt(",
+    "√": "sqrt(",
+    "π": "pi",
+    "x²": "x^2",
+    "x³": "x^3",
+    "xⁿ": "x^n",
+    "²": "^2",
+    "³": "^3",
+    "∞": "Infinity",
+
+    "sin(": "sin(",
+    "cos(": "cos(",
+    "tan(": "tan(",
+    "log(": "log10(",
+    "ln(": "log(",
+
+    "H₂O": "H2O",
+    "CO₂": "CO2",
+    "O₂": "O2",
+    "H₂": "H2",
+    "N₂": "N2",
+    "H₂SO₄": "H2SO4",
+
+    "⇌": "=",
+    "→": " -> "
+
   };
 
-  if (pageMap[pageName]) {
-    pageMap[pageName].classList.add("active-page");
+  return (
+    replacements[value] ??
+    value
+  );
+
+}
+
+
+/* =========================================================
+   INSERT TEXT
+========================================================= */
+
+function saveHistory() {
+
+  history.push({
+    expression,
+    cursorPosition
+  });
+
+  if (history.length > 50) {
+    history.shift();
   }
 
-  document.querySelectorAll(".nav-item").forEach(item => {
-    item.classList.toggle(
-      "active",
-      item.dataset.page === pageName
+}
+
+
+function insertText(text) {
+
+  saveHistory();
+
+  expression =
+    expression.slice(
+      0,
+      cursorPosition
+    ) +
+    text +
+    expression.slice(
+      cursorPosition
     );
-  });
 
-  sidebar?.classList.remove("open");
+  cursorPosition +=
+    text.length;
 
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth"
-  });
+  updateDisplay();
+
 }
 
 
 /* =========================================================
-   SIDEBAR
+   BACKSPACE
 ========================================================= */
 
-mobileMenu?.addEventListener("click", () => {
-  sidebar.classList.toggle("open");
-});
+function backspace() {
 
+  if (cursorPosition <= 0) {
+    return;
+  }
 
-document.querySelectorAll(".nav-item").forEach(item => {
+  saveHistory();
 
-  item.addEventListener("click", () => {
+  expression =
+    expression.slice(
+      0,
+      cursorPosition - 1
+    ) +
+    expression.slice(
+      cursorPosition
+    );
 
-    const page = item.dataset.page;
+  cursorPosition--;
 
-    if (page === "home") {
-      showPage("home");
-    }
+  updateDisplay();
 
-    if (page === "history") {
-      renderHistory();
-      showPage("history");
-    }
-
-    if (page === "favorites") {
-      renderFavorites();
-      showPage("favorites");
-    }
-
-  });
-
-});
-
-
-/* =========================================================
-   NEW PROBLEM
-========================================================= */
-
-$("newProblemBtn")?.addEventListener("click", newProblem);
-$("historyNewProblem")?.addEventListener("click", newProblem);
-
-
-function newProblem() {
-
-  state.currentResult = null;
-  state.currentProblem = "";
-
-  problemInput.value = "";
-
-  imagePreview.innerHTML = "";
-  imagePreview.classList.add("hidden");
-
-  $("answerValue").textContent = "—";
-  $("stepsContainer").innerHTML = "";
-  $("methodsContainer").innerHTML = "";
-  $("learningContainer").innerHTML = "";
-
-  resetGraph();
-
-  showPage("home");
-
-  setTimeout(() => {
-    problemInput.focus();
-  }, 100);
 }
 
 
 /* =========================================================
-   SUBJECT SELECTOR
+   CURSOR
 ========================================================= */
 
-subjectSelectorText?.addEventListener("click", (event) => {
+function moveCursorLeft() {
 
-  event.stopPropagation();
+  if (cursorPosition > 0) {
 
-  subjectSelector.classList.toggle("open");
+    cursorPosition--;
 
-});
+    updateDisplay();
 
+  }
 
-document.querySelectorAll(".subject-option").forEach(button => {
-
-  button.addEventListener("click", () => {
-
-    setSubject(button.dataset.subject);
-
-  });
-
-});
+}
 
 
-document.querySelectorAll(".subject-card").forEach(button => {
-
-  button.addEventListener("click", () => {
-
-    setSubject(button.dataset.subject);
-
-    problemInput.focus();
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth"
-    });
-
-  });
-
-});
-
-
-document.addEventListener("click", (event) => {
+function moveCursorRight() {
 
   if (
-    subjectSelector &&
-    !subjectSelector.contains(event.target)
+    cursorPosition <
+    expression.length
   ) {
-    subjectSelector.classList.remove("open");
+
+    cursorPosition++;
+
+    updateDisplay();
+
   }
 
-});
+}
 
 
 /* =========================================================
-   IMAGE INPUT
+   UNDO
 ========================================================= */
 
-imageBtn?.addEventListener("click", () => {
-  imageInput.click();
-});
+function undo() {
 
-$("scanCard")?.addEventListener("click", () => {
-  imageInput.click();
-});
-
-
-imageInput?.addEventListener("change", () => {
-
-  const file = imageInput.files?.[0];
-
-  if (!file) {
+  if (!history.length) {
     return;
   }
 
-  if (!file.type.startsWith("image/")) {
-    showToast("Escolhe uma imagem válida.");
-    return;
-  }
+  const previous =
+    history.pop();
 
-  const reader = new FileReader();
+  expression =
+    previous.expression;
 
-  reader.onload = () => {
+  cursorPosition =
+    previous.cursorPosition;
 
-    imagePreview.innerHTML = `
-      <img src="${reader.result}" alt="Imagem do problema">
-    `;
+  updateDisplay();
 
-    imagePreview.classList.remove("hidden");
+}
 
-    showToast(
-      "Imagem carregada. A leitura automática por OCR será adicionada numa próxima versão."
+
+/* =========================================================
+   CLEAR
+========================================================= */
+
+function clearExpression() {
+
+  saveHistory();
+
+  expression = "";
+
+  cursorPosition = 0;
+
+  updateDisplay();
+
+}
+
+
+/* =========================================================
+   DISPLAY
+========================================================= */
+
+function updateDisplay() {
+
+  problemDisplay.innerHTML = "";
+
+  if (!expression) {
+
+    const placeholder =
+      document.createElement("span");
+
+    placeholder.className =
+      "placeholder";
+
+    placeholder.textContent =
+      "Toque nas teclas abaixo...";
+
+    problemDisplay.appendChild(
+      placeholder
     );
 
-  };
+    return;
 
-  reader.readAsDataURL(file);
+  }
 
-});
+
+  const before =
+    escapeHTML(
+      expression.slice(
+        0,
+        cursorPosition
+      )
+    );
+
+  const after =
+    escapeHTML(
+      expression.slice(
+        cursorPosition
+      )
+    );
+
+
+  problemDisplay.innerHTML =
+    before +
+    '<span class="cursor"></span>' +
+    after;
+
+
+  problemDisplay.scrollLeft =
+    problemDisplay.scrollWidth;
+
+}
 
 
 /* =========================================================
-   TYPE CARD
+   HTML ESCAPE
 ========================================================= */
 
-$("typeCard")?.addEventListener("click", () => {
+function escapeHTML(text) {
 
-  problemInput.focus();
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 
-  problemInput.scrollIntoView({
-    behavior: "smooth",
-    block: "center"
-  });
-
-});
+}
 
 
 /* =========================================================
    SOLVE
 ========================================================= */
 
-solveBtn?.addEventListener("click", solveProblem);
+async function solve() {
 
-
-problemInput?.addEventListener("keydown", event => {
-
-  if (
-    event.key === "Enter" &&
-    (event.ctrlKey || event.metaKey)
-  ) {
-    solveProblem();
-  }
-
-});
-
-
-async function solveProblem() {
-
-  const problem = problemInput.value.trim();
+  const problem =
+    expression.trim();
 
   if (!problem) {
 
-    showToast("Escreve um problema primeiro.");
-
-    problemInput.focus();
+    showError(
+      "Digite um problema usando o teclado Einstein."
+    );
 
     return;
+
   }
 
+  hideError();
 
-  setLoading(true);
+  solveBtn.classList.add("loading");
+
+  solveBtn.innerHTML =
+    "<span>⏳</span> Resolvendo...";
 
 
   try {
 
-    const response = await fetch("/api/solve", {
+    const response =
+      await fetch(
+        "/api/solve",
+        {
+          method: "POST",
 
-      method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
 
-      headers: {
-        "Content-Type": "application/json"
-      },
+          body: JSON.stringify({
+            problem,
+            subject:
+              currentSubject
+          })
 
-      body: JSON.stringify({
-        problem,
-        subject: state.subject
-      })
-
-    });
+        }
+      );
 
 
-    const data = await response.json();
+    const data =
+      await response.json();
 
 
     if (!response.ok || !data.success) {
 
       throw new Error(
         data.error ||
-        "Não foi possível encontrar o problema."
+        "Não foi possível resolver."
       );
 
     }
 
 
-    state.currentProblem = problem;
-    state.currentResult = data.result;
-
-
-    addHistory({
-      problem,
-      subject: state.subject,
-      result: data.result,
-      timestamp: Date.now()
-    });
-
-
-    renderSolution(
-      problem,
-      state.subject,
+    renderResult(
       data.result
     );
 
 
-    showPage("solution");
-
   } catch (error) {
 
-    console.error("EinsteinWeb solve error:", error);
+    console.error(error);
 
-    showToast(
+    showError(
       error.message ||
-      "Não foi possível resolver o problema."
+      "Ocorreu um erro ao resolver."
     );
 
   } finally {
 
-    setLoading(false);
+    solveBtn.classList.remove(
+      "loading"
+    );
+
+    solveBtn.innerHTML =
+      "<span>✦</span> Resolver";
 
   }
 
@@ -423,27 +957,61 @@ async function solveProblem() {
 
 
 /* =========================================================
-   RENDER SOLUTION
+   RESULT
 ========================================================= */
 
-function renderSolution(problem, subject, result) {
+function renderResult(result) {
 
-  $("solutionSubject").textContent =
-    SUBJECTS[subject]?.name || subject;
+  resultSection.classList.remove(
+    "hidden"
+  );
 
-  $("solutionProblem").textContent = problem;
+  resultAnswer.textContent =
+    result.answer || "Sem resultado";
 
-  $("answerValue").textContent =
-    result?.answer ?? "Sem resposta";
 
-  renderSteps(result);
-  renderMethods(result);
-  renderGraph(result);
-  renderLearning(result);
+  renderSteps(
+    result.steps || []
+  );
 
-  updateFavoriteButton(problem);
 
-  activateTab("solution");
+  renderMethods(
+    result.methods || []
+  );
+
+
+  renderLearning(
+    result.learning
+  );
+
+
+  if (result.graph) {
+
+    graphContainer.classList.remove(
+      "hidden"
+    );
+
+    setTimeout(
+      () => drawGraph(
+        result.graph
+      ),
+      50
+    );
+
+  } else {
+
+    graphContainer.classList.add(
+      "hidden"
+    );
+
+  }
+
+
+  resultSection.scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+
 }
 
 
@@ -451,93 +1019,76 @@ function renderSolution(problem, subject, result) {
    STEPS
 ========================================================= */
 
-function renderSteps(result) {
+function renderSteps(steps) {
 
-  const container = $("stepsContainer");
-
-  container.innerHTML = "";
-
-
-  const steps = Array.isArray(result?.steps)
-    ? result.steps
-    : [];
-
+  stepsContainer.innerHTML = "";
 
   if (!steps.length) {
-
-    container.innerHTML = `
-      <div class="empty-state">
-        <span>?</span>
-        <p>
-          O motor encontrou uma resposta,
-          mas ainda não possui uma explicação detalhada
-          para este tipo de problema.
-        </p>
-      </div>
-    `;
-
     return;
   }
 
+  const title =
+    document.createElement("div");
 
-  steps.forEach((step, index) => {
+  title.className =
+    "section-title";
 
-    const card = document.createElement("div");
+  title.textContent =
+    "Resolução passo a passo";
 
-    card.className = "step-card";
-
-
-    const number = document.createElement("div");
-
-    number.className = "step-number";
-
-    number.textContent = index + 1;
-
-
-    const content = document.createElement("div");
-
-    content.className = "step-content";
+  stepsContainer.appendChild(
+    title
+  );
 
 
-    const title = document.createElement("strong");
+  steps.forEach(
+    (step, index) => {
 
-    title.textContent =
-      step.title ||
-      `Passo ${index + 1}`;
+      const card =
+        document.createElement("div");
 
-
-    const description = document.createElement("p");
-
-    description.textContent =
-      step.description ||
-      step.text ||
-      "";
+      card.className =
+        "step-card";
 
 
-    content.appendChild(title);
+      card.innerHTML = `
 
-    content.appendChild(description);
+        <div class="step-number">
+          ${index + 1}
+        </div>
 
+        <div class="step-title">
+          ${escapeHTML(
+            step.title || ""
+          )}
+        </div>
 
-    if (step.formula) {
+        <div class="step-description">
+          ${escapeHTML(
+            step.description || ""
+          )}
+        </div>
 
-      const formula = document.createElement("code");
+        ${
+          step.formula
+            ? `
+              <div class="step-formula">
+                ${escapeHTML(
+                  step.formula
+                )}
+              </div>
+            `
+            : ""
+        }
 
-      formula.className = "formula";
+      `;
 
-      formula.textContent = step.formula;
-
-      content.appendChild(formula);
+      stepsContainer.appendChild(
+        card
+      );
 
     }
-
-
-    card.appendChild(number);
-    card.appendChild(content);
-
-    container.appendChild(card);
-
-  });
+  );
 
 }
 
@@ -546,236 +1097,69 @@ function renderSteps(result) {
    METHODS
 ========================================================= */
 
-function renderMethods(result) {
+function renderMethods(methods) {
 
-  const container = $("methodsContainer");
-
-  container.innerHTML = "";
-
-
-  const methods = Array.isArray(result?.methods)
-    ? result.methods
-    : [];
-
+  methodsContainer.innerHTML = "";
 
   if (!methods.length) {
-
-    container.innerHTML = `
-      <div class="empty-state">
-        <span>∑</span>
-        <p>
-          Ainda não existem métodos alternativos
-          para este tipo de problema.
-        </p>
-      </div>
-    `;
-
     return;
   }
+
+  const title =
+    document.createElement("div");
+
+  title.className =
+    "section-title";
+
+  title.textContent =
+    "Métodos";
+
+  methodsContainer.appendChild(
+    title
+  );
 
 
   methods.forEach(method => {
 
-    const card = document.createElement("div");
+    const card =
+      document.createElement("div");
 
-    card.className = "method-card";
+    card.className =
+      "method-card";
 
+    card.innerHTML = `
 
-    const title = document.createElement("h3");
+      <div class="method-name">
+        ${escapeHTML(
+          method.name || ""
+        )}
+      </div>
 
-    title.textContent =
-      method.name ||
-      "Método";
+      <div class="method-description">
+        ${escapeHTML(
+          method.description || ""
+        )}
+      </div>
 
+      ${
+        method.result
+          ? `
+            <div class="method-result">
+              ${escapeHTML(
+                method.result
+              )}
+            </div>
+          `
+          : ""
+      }
 
-    const description = document.createElement("p");
+    `;
 
-    description.textContent =
-      method.description ||
-      "";
-
-
-    card.appendChild(title);
-    card.appendChild(description);
-
-
-    if (method.result) {
-
-      const result = document.createElement("div");
-
-      result.className = "method-result";
-
-      result.textContent =
-        `Resultado: ${method.result}`;
-
-      card.appendChild(result);
-
-    }
-
-
-    container.appendChild(card);
-
-  });
-
-}
-
-
-/* =========================================================
-   GRAPH
-========================================================= */
-
-function resetGraph() {
-
-  $("graphContainer").innerHTML = `
-    <div class="graph-empty">
-      <div>📈</div>
-      <p>
-        O gráfico será mostrado aqui quando o problema
-        tiver uma representação visual.
-      </p>
-    </div>
-  `;
-
-}
-
-
-function renderGraph(result) {
-
-  const container = $("graphContainer");
-
-  container.innerHTML = "";
-
-
-  if (
-    !result?.graph ||
-    !Array.isArray(result.graph.points) ||
-    result.graph.points.length < 2
-  ) {
-
-    resetGraph();
-
-    return;
-  }
-
-
-  const points = result.graph.points;
-
-  const width = 760;
-  const height = 400;
-
-  const padding = 50;
-
-
-  const xs = points.map(point => Number(point.x));
-  const ys = points.map(point => Number(point.y));
-
-
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-
-
-  const rangeX = maxX - minX || 1;
-  const rangeY = maxY - minY || 1;
-
-
-  function mapX(x) {
-
-    return padding +
-      ((x - minX) / rangeX) *
-      (width - padding * 2);
-
-  }
-
-
-  function mapY(y) {
-
-    return height -
-      padding -
-      ((y - minY) / rangeY) *
-      (height - padding * 2);
-
-  }
-
-
-  let path = "";
-
-  points.forEach((point, index) => {
-
-    const x = mapX(point.x);
-    const y = mapY(point.y);
-
-    path +=
-      `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)} `;
+    methodsContainer.appendChild(
+      card
+    );
 
   });
-
-
-  const zeroX =
-    minX <= 0 && maxX >= 0
-      ? mapX(0)
-      : padding;
-
-
-  const zeroY =
-    minY <= 0 && maxY >= 0
-      ? mapY(0)
-      : height - padding;
-
-
-  const svg = document.createElementNS(
-    "http://www.w3.org/2000/svg",
-    "svg"
-  );
-
-
-  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-
-  svg.classList.add("graph-svg");
-
-
-  svg.innerHTML = `
-    <rect
-      x="0"
-      y="0"
-      width="${width}"
-      height="${height}"
-      rx="12"
-      fill="#0c0c0c"
-    />
-
-    <line
-      x1="${padding}"
-      y1="${zeroY}"
-      x2="${width - padding}"
-      y2="${zeroY}"
-      stroke="#303030"
-      stroke-width="1"
-    />
-
-    <line
-      x1="${zeroX}"
-      y1="${padding}"
-      x2="${zeroX}"
-      y2="${height - padding}"
-      stroke="#303030"
-      stroke-width="1"
-    />
-
-    <path
-      d="${path}"
-      fill="none"
-      stroke="#ffffff"
-      stroke-width="3"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    />
-  `;
-
-
-  container.appendChild(svg);
 
 }
 
@@ -784,625 +1168,628 @@ function renderGraph(result) {
    LEARNING
 ========================================================= */
 
-function renderLearning(result) {
+function renderLearning(learning) {
 
-  const container = $("learningContainer");
-
-  container.innerHTML = "";
-
-
-  const learning = result?.learning;
-
+  learningContainer.innerHTML = "";
 
   if (!learning) {
-
-    container.innerHTML = `
-      <div class="empty-state">
-        <span>?</span>
-        <p>
-          Ainda não existe conteúdo educativo adicional
-          para este problema.
-        </p>
-      </div>
-    `;
-
     return;
   }
 
+  const title =
+    document.createElement("div");
 
-  if (learning.concept) {
+  title.className =
+    "section-title";
 
-    addLearningCard(
-      container,
-      "Conceito",
-      learning.concept
-    );
+  title.textContent =
+    "Aprender";
 
-  }
-
-
-  if (learning.explanation) {
-
-    addLearningCard(
-      container,
-      "Por que fazemos isto?",
-      learning.explanation
-    );
-
-  }
+  learningContainer.appendChild(
+    title
+  );
 
 
-  if (learning.tip) {
+  const card =
+    document.createElement("div");
 
-    addLearningCard(
-      container,
-      "Dica",
-      learning.tip
-    );
-
-  }
-
-}
+  card.className =
+    "learning-card";
 
 
-function addLearningCard(container, title, text) {
+  const rows = [
 
-  const card = document.createElement("div");
+    ["Conceito", learning.concept],
 
-  card.className = "learning-card";
+    ["Explicação", learning.explanation],
 
+    ["Dica", learning.tip]
 
-  const heading = document.createElement("h3");
-
-  heading.textContent = title;
-
-
-  const paragraph = document.createElement("p");
-
-  paragraph.textContent = text;
+  ];
 
 
-  card.appendChild(heading);
+  rows.forEach(
+    ([label, value]) => {
 
-  card.appendChild(paragraph);
+      if (!value) return;
 
-  container.appendChild(card);
+      const row =
+        document.createElement("div");
 
-}
+      row.className =
+        "learning-row";
 
+      row.innerHTML = `
 
-/* =========================================================
-   TABS
-========================================================= */
+        <div class="learning-label">
+          ${label}
+        </div>
 
-document.querySelectorAll(".solution-tab").forEach(button => {
+        <div class="learning-value">
+          ${escapeHTML(value)}
+        </div>
 
-  button.addEventListener("click", () => {
+      `;
 
-    activateTab(button.dataset.tab);
+      card.appendChild(row);
 
-  });
-
-});
-
-
-function activateTab(tabName) {
-
-  document.querySelectorAll(".solution-tab").forEach(button => {
-
-    button.classList.toggle(
-      "active",
-      button.dataset.tab === tabName
-    );
-
-  });
+    }
+  );
 
 
-  const tabMap = {
-    solution: $("solutionTab"),
-    methods: $("methodsTab"),
-    graph: $("graphTab"),
-    learn: $("learnTab")
-  };
-
-
-  Object.values(tabMap).forEach(tab => {
-
-    tab?.classList.remove("active");
-
-  });
-
-
-  tabMap[tabName]?.classList.add("active");
-
-}
-
-
-/* =========================================================
-   BACK
-========================================================= */
-
-$("backBtn")?.addEventListener("click", () => {
-  showPage("home");
-});
-
-
-/* =========================================================
-   HISTORY
-========================================================= */
-
-function saveHistory() {
-
-  localStorage.setItem(
-    "einsteinHistory",
-    JSON.stringify(state.history)
+  learningContainer.appendChild(
+    card
   );
 
 }
 
 
-function addHistory(item) {
+/* =========================================================
+   GRAPH ENGINE
+========================================================= */
 
-  state.history.unshift(item);
+function drawGraph(graph) {
 
-  state.history =
-    state.history.slice(0, 50);
+  const canvas =
+    graphCanvas;
 
-  saveHistory();
+  const container =
+    canvas.parentElement;
 
-  renderRecent();
+  const width =
+    container.clientWidth - 32;
+
+  const height =
+    300;
+
+  const ratio =
+    window.devicePixelRatio || 1;
+
+
+  canvas.width =
+    width * ratio;
+
+  canvas.height =
+    height * ratio;
+
+  canvas.style.width =
+    width + "px";
+
+  canvas.style.height =
+    height + "px";
+
+
+  const ctx =
+    canvas.getContext("2d");
+
+  ctx.scale(
+    ratio,
+    ratio
+  );
+
+
+  const points =
+    graph.points || [];
+
+
+  if (!points.length) {
+    return;
+  }
+
+
+  const xs =
+    points.map(p => p.x);
+
+  const ys =
+    points.map(p => p.y);
+
+
+  let minX =
+    Math.min(...xs);
+
+  let maxX =
+    Math.max(...xs);
+
+  let minY =
+    Math.min(...ys);
+
+  let maxY =
+    Math.max(...ys);
+
+
+  if (minY === maxY) {
+
+    minY -= 1;
+    maxY += 1;
+
+  }
+
+
+  if (minX === maxX) {
+
+    minX -= 1;
+    maxX += 1;
+
+  }
+
+
+  const padding =
+    35;
+
+
+  function mapX(x) {
+
+    return padding +
+      (
+        (x - minX) /
+        (maxX - minX)
+      ) *
+      (
+        width -
+        padding * 2
+      );
+
+  }
+
+
+  function mapY(y) {
+
+    return height -
+      padding -
+      (
+        (y - minY) /
+        (maxY - minY)
+      ) *
+      (
+        height -
+        padding * 2
+      );
+
+  }
+
+
+  ctx.clearRect(
+    0,
+    0,
+    width,
+    height
+  );
+
+
+  /* GRID */
+
+  ctx.strokeStyle =
+    "#eeeeee";
+
+  ctx.lineWidth = 1;
+
+
+  for (
+    let i = 0;
+    i <= 10;
+    i++
+  ) {
+
+    const x =
+      padding +
+      i *
+      (
+        width -
+        padding * 2
+      ) / 10;
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      x,
+      padding
+    );
+
+    ctx.lineTo(
+      x,
+      height - padding
+    );
+
+    ctx.stroke();
+
+  }
+
+
+  for (
+    let i = 0;
+    i <= 10;
+    i++
+  ) {
+
+    const y =
+      padding +
+      i *
+      (
+        height -
+        padding * 2
+      ) / 10;
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      padding,
+      y
+    );
+
+    ctx.lineTo(
+      width - padding,
+      y
+    );
+
+    ctx.stroke();
+
+  }
+
+
+  /* AXES */
+
+  ctx.strokeStyle =
+    "#999";
+
+  ctx.lineWidth = 1.5;
+
+
+  if (
+    minX <= 0 &&
+    maxX >= 0
+  ) {
+
+    const axisX =
+      mapX(0);
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      axisX,
+      padding
+    );
+
+    ctx.lineTo(
+      axisX,
+      height - padding
+    );
+
+    ctx.stroke();
+
+  }
+
+
+  if (
+    minY <= 0 &&
+    maxY >= 0
+  ) {
+
+    const axisY =
+      mapY(0);
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+      padding,
+      axisY
+    );
+
+    ctx.lineTo(
+      width - padding,
+      axisY
+    );
+
+    ctx.stroke();
+
+  }
+
+
+  /* CURVE */
+
+  ctx.strokeStyle =
+    "#111";
+
+  ctx.lineWidth = 3;
+
+  ctx.lineJoin = "round";
+
+  ctx.beginPath();
+
+
+  points.forEach(
+    (point, index) => {
+
+      const x =
+        mapX(point.x);
+
+      const y =
+        mapY(point.y);
+
+
+      if (index === 0) {
+
+        ctx.moveTo(
+          x,
+          y
+        );
+
+      } else {
+
+        ctx.lineTo(
+          x,
+          y
+        );
+
+      }
+
+    }
+  );
+
+
+  ctx.stroke();
+
+
+  /* LABELS */
+
+  ctx.fillStyle =
+    "#777";
+
+  ctx.font =
+    "11px Arial";
+
+
+  ctx.fillText(
+    `x: ${minX}`,
+    padding,
+    height - 8
+  );
+
+
+  ctx.fillText(
+    `x: ${maxX}`,
+    width - padding - 35,
+    height - 8
+  );
 
 }
 
 
-function renderRecent() {
+/* =========================================================
+   ERRORS
+========================================================= */
 
-  const container = $("recentList");
+function showError(message) {
 
-  if (!container) {
-    return;
-  }
+  errorBox.textContent =
+    message;
 
+  errorBox.classList.remove(
+    "hidden"
+  );
 
-  if (!state.history.length) {
+  resultSection.classList.add(
+    "hidden"
+  );
 
-    container.innerHTML = `
-      <div class="empty-state">
-        <span>◷</span>
-        <p>
-          Os seus problemas recentes aparecerão aqui.
-        </p>
-      </div>
-    `;
-
-    return;
-  }
+}
 
 
-  container.innerHTML = "";
+function hideError() {
+
+  errorBox.classList.add(
+    "hidden"
+  );
+
+}
 
 
-  state.history
-    .slice(0, 5)
-    .forEach((item, index) => {
+/* =========================================================
+   SUBJECT CHANGE
+========================================================= */
 
-      container.appendChild(
-        createHistoryItem(item, index)
+function changeSubject(subject) {
+
+  currentSubject =
+    subject;
+
+  currentKeyboardCategory =
+    keyboards[subject].tabs[0][0];
+
+  expression = "";
+
+  cursorPosition = 0;
+
+  history = [];
+
+
+  const info =
+    modeInfo[subject];
+
+  calculatorTitle.textContent =
+    info.title;
+
+  calculatorSubtitle.textContent =
+    info.subtitle;
+
+
+  document
+    .querySelectorAll(".mode-btn")
+    .forEach(button => {
+
+      button.classList.toggle(
+        "active",
+        button.dataset.subject === subject
       );
 
     });
 
+
+  resultSection.classList.add(
+    "hidden"
+  );
+
+  hideError();
+
+
+  renderTabs();
+  renderKeyboard();
+  updateDisplay();
+
 }
 
 
-function renderHistory() {
+/* =========================================================
+   EVENTS
+========================================================= */
 
-  const container = $("historyContainer");
+document
+  .querySelectorAll(".mode-btn")
+  .forEach(button => {
 
-  if (!container) {
-    return;
-  }
+    button.addEventListener(
+      "click",
+      () => {
 
+        changeSubject(
+          button.dataset.subject
+        );
 
-  if (!state.history.length) {
-
-    container.innerHTML = `
-      <div class="empty-state large">
-        <span>◷</span>
-        <p>
-          Ainda não resolveste nenhum problema.
-        </p>
-      </div>
-    `;
-
-    return;
-  }
-
-
-  container.innerHTML = "";
-
-
-  state.history.forEach((item, index) => {
-
-    container.appendChild(
-      createHistoryItem(item, index)
+      }
     );
 
   });
 
-}
+
+solveBtn.addEventListener(
+  "click",
+  solve
+);
 
 
-function createHistoryItem(item) {
-
-  const div = document.createElement("div");
-
-  div.className = "history-item";
-
-
-  const subject = SUBJECTS[item.subject] ||
-    SUBJECTS.math;
+clearAll.addEventListener(
+  "click",
+  clearExpression
+);
 
 
-  div.innerHTML = `
-    <div class="history-subject">
-      ${subject.symbol}
-    </div>
-
-    <div class="history-content">
-
-      <strong></strong>
-
-      <span>
-        ${subject.name}
-        •
-        ${formatDate(item.timestamp)}
-      </span>
-
-    </div>
-
-    <div class="history-arrow">
-      →
-    </div>
-  `;
+undoBtn.addEventListener(
+  "click",
+  undo
+);
 
 
-  div.querySelector("strong").textContent =
-    item.problem;
+cursorLeft.addEventListener(
+  "click",
+  moveCursorLeft
+);
 
 
-  div.addEventListener("click", () => {
-
-    state.currentProblem = item.problem;
-    state.currentResult = item.result;
-    state.subject = item.subject;
-
-    renderSolution(
-      item.problem,
-      item.subject,
-      item.result
-    );
-
-    showPage("solution");
-
-  });
+cursorRight.addEventListener(
+  "click",
+  moveCursorRight
+);
 
 
-  return div;
-
-}
-
-
-$("viewHistory")?.addEventListener("click", () => {
-
-  renderHistory();
-
-  showPage("history");
-
-});
-
-
-function formatDate(timestamp) {
-
-  if (!timestamp) {
-    return "agora";
-  }
-
-  const date = new Date(timestamp);
-
-  return date.toLocaleDateString(
-    "pt-PT",
-    {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric"
-    }
-  );
-
-}
+backspaceBtn.addEventListener(
+  "click",
+  backspace
+);
 
 
 /* =========================================================
-   FAVORITES
+   PREVENT PHONE KEYBOARD
 ========================================================= */
 
-function saveFavorites() {
+/*
+   Importante:
 
-  localStorage.setItem(
-    "einsteinFavorites",
-    JSON.stringify(state.favorites)
-  );
+   Não existe <input> editável nesta interface.
+   Portanto o teclado virtual do Android/iOS não é aberto.
 
-}
+   Todas as entradas passam pelo teclado Einstein.
+*/
 
 
-$("favoriteBtn")?.addEventListener("click", () => {
+document.addEventListener(
+  "keydown",
+  event => {
 
-  if (!state.currentProblem) {
-    return;
-  }
+    /*
+      Mantemos apenas atalhos físicos úteis
+      no computador.
 
+      No celular isto não interfere.
+    */
 
-  const existingIndex =
-    state.favorites.findIndex(
-      item =>
-        item.problem === state.currentProblem
-    );
+    if (
+      event.key === "Backspace"
+    ) {
 
+      event.preventDefault();
 
-  if (existingIndex >= 0) {
+      backspace();
 
-    state.favorites.splice(existingIndex, 1);
-
-    showToast("Removido dos favoritos.");
-
-  } else {
-
-    state.favorites.unshift({
-
-      problem: state.currentProblem,
-
-      subject: state.subject,
-
-      result: state.currentResult,
-
-      timestamp: Date.now()
-
-    });
-
-    showToast("Adicionado aos favoritos.");
-
-  }
-
-
-  saveFavorites();
-
-  updateFavoriteButton(
-    state.currentProblem
-  );
-
-});
-
-
-function updateFavoriteButton(problem) {
-
-  const exists =
-    state.favorites.some(
-      item => item.problem === problem
-    );
-
-
-  const button = $("favoriteBtn");
-
-  if (!button) {
-    return;
-  }
-
-
-  button.textContent =
-    exists ? "★" : "☆";
-
-
-  button.classList.toggle(
-    "saved",
-    exists
-  );
-
-}
-
-
-function renderFavorites() {
-
-  const container =
-    $("favoritesContainer");
-
-
-  if (!container) {
-    return;
-  }
-
-
-  if (!state.favorites.length) {
-
-    container.innerHTML = `
-      <div class="empty-state large">
-        <span>☆</span>
-        <p>
-          Ainda não tens problemas favoritos.
-        </p>
-      </div>
-    `;
-
-    return;
-  }
-
-
-  container.innerHTML = "";
-
-
-  state.favorites.forEach(item => {
-
-    container.appendChild(
-      createHistoryItem(item)
-    );
-
-  });
-
-}
-
-
-/* =========================================================
-   LOADING
-========================================================= */
-
-function setLoading(value) {
-
-  loadingOverlay.classList.toggle(
-    "hidden",
-    !value
-  );
-
-  solveBtn.disabled = value;
-
-}
-
-
-/* =========================================================
-   TOAST
-========================================================= */
-
-let toastTimer = null;
-
-
-function showToast(message) {
-
-  toastText.textContent = message;
-
-  toast.classList.add("show");
-
-
-  clearTimeout(toastTimer);
-
-
-  toastTimer = setTimeout(() => {
-
-    toast.classList.remove("show");
-
-  }, 3500);
-
-}
-
-
-/* =========================================================
-   VOICE
-========================================================= */
-
-$("voiceBtn")?.addEventListener("click", () => {
-
-  const SpeechRecognition =
-    window.SpeechRecognition ||
-    window.webkitSpeechRecognition;
-
-
-  if (!SpeechRecognition) {
-
-    showToast(
-      "O reconhecimento de voz não é suportado neste navegador."
-    );
-
-    return;
-  }
-
-
-  const recognition =
-    new SpeechRecognition();
-
-
-  recognition.lang = "pt-PT";
-
-  recognition.interimResults = false;
-
-  recognition.maxAlternatives = 1;
-
-
-  showToast("A ouvir...");
-
-
-  recognition.start();
-
-
-  recognition.onresult = event => {
-
-    const text =
-      event.results[0][0].transcript;
-
-
-    problemInput.value =
-      problemInput.value
-        ? `${problemInput.value} ${text}`
-        : text;
-
-  };
-
-
-  recognition.onerror = () => {
-
-    showToast(
-      "Não foi possível utilizar o microfone."
-    );
-
-  };
-
-});
-
-
-/* =========================================================
-   INITIALIZATION
-========================================================= */
-
-setSubject("math");
-
-renderRecent();
-
-renderHistory();
-
-renderFavorites();
-
-showPage("home");
-
-
-/* =========================================================
-   STATUS CHECK
-========================================================= */
-
-async function checkServer() {
-
-  try {
-
-    const response =
-      await fetch("/api/status");
-
-    if (!response.ok) {
-      throw new Error();
     }
 
-    const data =
-      await response.json();
+    if (
+      event.key === "ArrowLeft"
+    ) {
 
-    console.log(
-      "EinsteinWeb:",
-      data
-    );
+      event.preventDefault();
 
-  } catch (error) {
+      moveCursorLeft();
 
-    console.warn(
-      "EinsteinWeb server status unavailable."
-    );
+    }
+
+    if (
+      event.key === "ArrowRight"
+    ) {
+
+      event.preventDefault();
+
+      moveCursorRight();
+
+    }
+
+    if (
+      event.ctrlKey &&
+      event.key.toLowerCase() === "z"
+    ) {
+
+      event.preventDefault();
+
+      undo();
+
+    }
 
   }
+);
 
-}
 
+/* =========================================================
+   INITIALIZE
+========================================================= */
 
-checkServer();
+changeSubject(
+  "math"
+);
