@@ -2,284 +2,528 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>EinsteinWeb — Solve. Understand. Master.</title>
   <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    name="description"
+    content="EinsteinWeb — resolva, entenda e aprenda Matemática, Física e Química."
   >
 
-  <title>EinsteinWeb</title>
-
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="/style.css">
 </head>
 
 <body>
 
-  <div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
 
-    <!-- =====================================================
-         HEADER
-    ====================================================== -->
+    <div class="brand">
+      <div class="brand-icon">E</div>
 
-    <header class="topbar">
+      <div class="brand-text">
+        <strong>EinsteinWeb</strong>
+        <span>Problem Solver</span>
+      </div>
+    </div>
 
-      <div class="brand">
-        <div class="brand-icon">E</div>
+    <button class="new-problem-btn" id="newProblemBtn">
+      <span>＋</span>
+      <span>Novo problema</span>
+    </button>
+
+    <nav class="navigation">
+
+      <button class="nav-item active" data-page="home">
+        <span class="nav-icon">⌂</span>
+        <span>Início</span>
+      </button>
+
+      <button class="nav-item" data-page="history">
+        <span class="nav-icon">◷</span>
+        <span>Histórico</span>
+      </button>
+
+      <button class="nav-item" data-page="favorites">
+        <span class="nav-icon">☆</span>
+        <span>Favoritos</span>
+      </button>
+
+    </nav>
+
+    <div class="sidebar-bottom">
+
+      <div class="brain-status">
+        <span class="status-dot"></span>
 
         <div>
-          <div class="brand-name">Einstein</div>
-          <div class="brand-version">V0.5</div>
+          <strong>Einstein Brain</strong>
+          <small>Online</small>
         </div>
       </div>
 
-      <div class="status">
-        <span class="status-dot"></span>
-        <span>Online</span>
+      <div class="version">
+        V0.4
       </div>
-
-    </header>
-
-
-    <!-- =====================================================
-         MODE SELECTOR
-    ====================================================== -->
-
-    <div class="mode-container">
-
-      <button
-        class="mode-btn active"
-        data-subject="math"
-      >
-        <span>∑</span>
-        Matemática
-      </button>
-
-      <button
-        class="mode-btn"
-        data-subject="physics"
-      >
-        <span>⚡</span>
-        Física
-      </button>
-
-      <button
-        class="mode-btn"
-        data-subject="chemistry"
-      >
-        <span>⚗</span>
-        Química
-      </button>
 
     </div>
 
+  </aside>
 
-    <!-- =====================================================
-         WORKSPACE
-    ====================================================== -->
 
-    <main class="workspace">
+  <!-- MOBILE HEADER -->
+  <header class="mobile-header">
 
-      <section class="calculator">
+    <button id="mobileMenu" class="mobile-menu-btn">
+      ☰
+    </button>
 
-        <div class="calculator-header">
+    <div class="mobile-brand">
+      <div class="brand-icon">E</div>
+      <strong>EinsteinWeb</strong>
+    </div>
 
-          <div>
-            <div
-              class="calculator-title"
-              id="calculatorTitle"
-            >
-              Calculadora Matemática
+  </header>
+
+
+  <!-- MAIN -->
+  <main class="main-content">
+
+    <!-- HOME PAGE -->
+    <section id="homePage" class="page active-page">
+
+      <div class="hero">
+
+        <div class="hero-badge">
+          <span class="status-dot"></span>
+          Einstein Brain V0.4
+        </div>
+
+        <h1>
+          Resolve.<br>
+          <span>Entenda.</span>
+        </h1>
+
+        <p>
+          Matemática, Física e Química.
+          Não mostramos apenas a resposta — mostramos como chegar lá.
+        </p>
+
+      </div>
+
+
+      <!-- SOLVER CARD -->
+      <div class="solver-card">
+
+        <div class="solver-top">
+
+          <div class="subject-selector" id="subjectSelector">
+
+            <button class="subject-selector-btn" id="subjectSelectorText">
+              <span class="subject-symbol">∑</span>
+              <span>Matemática</span>
+              <span class="selector-arrow">⌄</span>
+            </button>
+
+            <div class="subject-menu" id="subjectMenu">
+
+              <button class="subject-option active" data-subject="math">
+                <span>∑</span>
+                <span>
+                  <strong>Matemática</strong>
+                  <small>Equações, funções e cálculos</small>
+                </span>
+              </button>
+
+              <button class="subject-option" data-subject="physics">
+                <span>⚡</span>
+                <span>
+                  <strong>Física</strong>
+                  <small>Fórmulas, unidades e problemas</small>
+                </span>
+              </button>
+
+              <button class="subject-option" data-subject="chemistry">
+                <span>⚗</span>
+                <span>
+                  <strong>Química</strong>
+                  <small>Mol, massa, concentração</small>
+                </span>
+              </button>
+
             </div>
 
-            <div
-              class="calculator-subtitle"
-              id="calculatorSubtitle"
-            >
-              Digite usando o teclado Einstein
-            </div>
           </div>
 
-          <button
-            class="clear-all"
-            id="clearAll"
-            title="Limpar"
-          >
-            C
+          <div class="selected-subject-label" id="selectedSubject">
+            Matemática
+          </div>
+
+        </div>
+
+
+        <textarea
+          id="problemInput"
+          class="problem-input"
+          placeholder="Digite o seu problema aqui...
+
+Exemplo:
+Resolva 2x + 5 = 15"
+          spellcheck="false"
+        ></textarea>
+
+
+        <div id="imagePreview" class="image-preview hidden"></div>
+
+
+        <div class="solver-bottom">
+
+          <div class="input-tools">
+
+            <button id="imageBtn" class="tool-btn" title="Adicionar imagem">
+              📷
+            </button>
+
+            <input
+              type="file"
+              id="imageInput"
+              accept="image/*"
+              hidden
+            >
+
+            <button id="voiceBtn" class="tool-btn" title="Entrada por voz">
+              🎙
+            </button>
+
+          </div>
+
+          <button id="solveBtn" class="solve-btn">
+            <span>Resolver</span>
+            <span class="solve-arrow">→</span>
           </button>
 
         </div>
 
+      </div>
 
-        <!-- =================================================
-             DISPLAY
-        ================================================== -->
 
-        <div class="display">
+      <!-- QUICK ACTIONS -->
+      <div class="section-heading">
+        <span>Começar rapidamente</span>
+      </div>
 
-          <div
-            id="problemDisplay"
-            class="problem-display"
-          >
-            <span class="placeholder">
-              Toque nas teclas abaixo...
-            </span>
+      <div class="quick-grid">
+
+        <button class="quick-card" id="scanCard">
+
+          <div class="quick-icon">📷</div>
+
+          <div>
+            <strong>Fotografar problema</strong>
+            <span>Envie uma imagem</span>
           </div>
 
-          <div class="display-controls">
+          <span class="quick-arrow">→</span>
 
-            <button
-              id="undoBtn"
-              class="small-control"
-            >
-              ↶
-            </button>
-
-            <button
-              id="cursorLeft"
-              class="small-control"
-            >
-              ←
-            </button>
-
-            <button
-              id="cursorRight"
-              class="small-control"
-            >
-              →
-            </button>
-
-            <button
-              id="backspaceBtn"
-              class="small-control delete"
-            >
-              ⌫
-            </button>
-
-          </div>
-
-        </div>
-
-
-        <!-- =================================================
-             SOLVE BUTTON
-        ================================================== -->
-
-        <button
-          id="solveBtn"
-          class="solve-button"
-        >
-          <span>✦</span>
-          Resolver
         </button>
 
 
-        <!-- =================================================
-             KEYBOARD
-        ================================================== -->
+        <button class="quick-card" id="typeCard">
 
-        <section class="keyboard-container">
-
-          <!-- CATEGORY TABS -->
-
-          <div
-            id="keyboardTabs"
-            class="keyboard-tabs"
-          ></div>
-
-
-          <!-- KEYBOARD -->
-
-          <div
-            id="keyboard"
-            class="keyboard"
-          ></div>
-
-        </section>
-
-      </section>
-
-
-      <!-- ===================================================
-           RESULT
-      ==================================================== -->
-
-      <section
-        id="resultSection"
-        class="result-section hidden"
-      >
-
-        <div class="result-header">
+          <div class="quick-icon">⌨</div>
 
           <div>
-            <div class="result-label">
-              RESULTADO
-            </div>
+            <strong>Digitar problema</strong>
+            <span>Escreva a pergunta</span>
+          </div>
 
-            <div
-              id="resultAnswer"
-              class="result-answer"
-            ></div>
+          <span class="quick-arrow">→</span>
+
+        </button>
+
+      </div>
+
+
+      <!-- SUBJECTS -->
+      <div class="section-heading subject-heading">
+        <span>Áreas</span>
+      </div>
+
+      <div class="subject-cards">
+
+        <button class="subject-card math-card" data-subject="math">
+
+          <div class="subject-card-icon">∑</div>
+
+          <div>
+            <strong>Matemática</strong>
+            <span>Equações • Funções • Álgebra</span>
+          </div>
+
+          <span>→</span>
+
+        </button>
+
+
+        <button class="subject-card physics-card" data-subject="physics">
+
+          <div class="subject-card-icon">⚡</div>
+
+          <div>
+            <strong>Física</strong>
+            <span>Força • Velocidade • Energia</span>
+          </div>
+
+          <span>→</span>
+
+        </button>
+
+
+        <button class="subject-card chemistry-card" data-subject="chemistry">
+
+          <div class="subject-card-icon">⚗</div>
+
+          <div>
+            <strong>Química</strong>
+            <span>Mol • Massa • Concentração</span>
+          </div>
+
+          <span>→</span>
+
+        </button>
+
+      </div>
+
+
+      <!-- RECENT -->
+      <div class="recent-section">
+
+        <div class="section-heading">
+
+          <span>Problemas recentes</span>
+
+          <button id="viewHistory">
+            Ver tudo →
+          </button>
+
+        </div>
+
+        <div id="recentList" class="recent-list">
+          <div class="empty-state">
+            <span>◷</span>
+            <p>Os seus problemas recentes aparecerão aqui.</p>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- SOLUTION PAGE -->
+    <section id="solutionPage" class="page">
+
+      <div class="solution-header">
+
+        <button id="backBtn" class="back-btn">
+          ←
+        </button>
+
+        <div class="solution-title">
+
+          <span id="solutionSubject" class="solution-subject">
+            Matemática
+          </span>
+
+          <h2 id="solutionProblem">
+            Problema
+          </h2>
+
+        </div>
+
+        <button id="favoriteBtn" class="favorite-btn">
+          ☆
+        </button>
+
+      </div>
+
+
+      <!-- TABS -->
+      <div class="solution-tabs">
+
+        <button class="solution-tab active" data-tab="solution">
+          Solução
+        </button>
+
+        <button class="solution-tab" data-tab="methods">
+          Métodos
+        </button>
+
+        <button class="solution-tab" data-tab="graph">
+          Gráfico
+        </button>
+
+        <button class="solution-tab" data-tab="learn">
+          Aprender
+        </button>
+
+      </div>
+
+
+      <!-- SOLUTION TAB -->
+      <div id="solutionTab" class="solution-tab-content active">
+
+        <div class="answer-card">
+
+          <div class="answer-label">
+            RESPOSTA
+          </div>
+
+          <div id="answerValue" class="answer-value">
+            —
           </div>
 
         </div>
 
+        <div class="steps-section">
 
-        <!-- STEPS -->
-
-        <div
-          id="stepsContainer"
-          class="steps-container"
-        ></div>
-
-
-        <!-- METHODS -->
-
-        <div
-          id="methodsContainer"
-          class="methods-container"
-        ></div>
-
-
-        <!-- LEARNING -->
-
-        <div
-          id="learningContainer"
-          class="learning-container"
-        ></div>
-
-
-        <!-- GRAPH -->
-
-        <div
-          id="graphContainer"
-          class="graph-container hidden"
-        >
-
-          <div class="graph-title">
-            Gráfico
+          <div class="content-title">
+            <span>Como resolver</span>
           </div>
 
-          <canvas
-            id="graphCanvas"
-          ></canvas>
+          <div id="stepsContainer" class="steps-container"></div>
 
         </div>
 
-      </section>
+      </div>
 
 
-      <!-- ERROR -->
+      <!-- METHODS TAB -->
+      <div id="methodsTab" class="solution-tab-content">
 
-      <div
-        id="errorBox"
-        class="error-box hidden"
-      ></div>
+        <div class="content-title">
+          <span>Métodos disponíveis</span>
+        </div>
 
-    </main>
+        <div id="methodsContainer" class="methods-container"></div>
+
+      </div>
+
+
+      <!-- GRAPH TAB -->
+      <div id="graphTab" class="solution-tab-content">
+
+        <div class="content-title">
+          <span>Visualização</span>
+        </div>
+
+        <div id="graphContainer" class="graph-container">
+
+          <div class="graph-empty">
+            <div>📈</div>
+            <p>
+              O gráfico será mostrado aqui quando o problema
+              tiver uma representação visual.
+            </p>
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <!-- LEARN TAB -->
+      <div id="learnTab" class="solution-tab-content">
+
+        <div class="content-title">
+          <span>Aprender</span>
+        </div>
+
+        <div id="learningContainer" class="learning-container"></div>
+
+      </div>
+
+    </section>
+
+
+    <!-- HISTORY PAGE -->
+    <section id="historyPage" class="page">
+
+      <div class="page-header">
+
+        <div>
+          <span class="page-eyebrow">EinsteinWeb</span>
+          <h2>Histórico</h2>
+          <p>Os problemas que resolveste anteriormente.</p>
+        </div>
+
+        <button id="historyNewProblem" class="primary-small-btn">
+          + Novo problema
+        </button>
+
+      </div>
+
+      <div id="historyContainer" class="history-container"></div>
+
+    </section>
+
+
+    <!-- FAVORITES PAGE -->
+    <section id="favoritesPage" class="page">
+
+      <div class="page-header">
+
+        <div>
+          <span class="page-eyebrow">EinsteinWeb</span>
+          <h2>Favoritos</h2>
+          <p>Problemas que guardaste para rever.</p>
+        </div>
+
+      </div>
+
+      <div id="favoritesContainer" class="history-container">
+
+        <div class="empty-state large">
+          <span>☆</span>
+          <p>Ainda não tens problemas favoritos.</p>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- LOADING -->
+  <div id="loadingOverlay" class="loading-overlay hidden">
+
+    <div class="loading-card">
+
+      <div class="loader"></div>
+
+      <strong>Einstein está a pensar...</strong>
+
+      <span>
+        Analisando o problema
+      </span>
+
+    </div>
 
   </div>
 
 
-  <script src="script.js"></script>
+  <!-- TOAST -->
+  <div id="toast" class="toast">
+
+    <span id="toastText">
+      Mensagem
+    </span>
+
+  </div>
+
+
+  <script src="/script.js"></script>
 
 </body>
-</html>
+    </html>
