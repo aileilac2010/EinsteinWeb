@@ -1,815 +1,647 @@
-```javascript
-/* =========================================================
-   EINSTEINWEB V0.4
-   FRONTEND CONTROLLER
-========================================================= */
+<!DOCTYPE html>
 
-"use strict";
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+  <title>EinsteinWeb — Solve. Understand. Master.</title>
 
-/* =========================================================
-   STATE
-========================================================= */
+<meta
+name="description"
+content="EinsteinWeb — resolva, entenda e aprenda Matemática, Física e Química."
 
-const state = {
-  subject: "math",
-  currentResult: null,
-  currentProblem: "",
+>
 
-  history: JSON.parse(
-    localStorage.getItem("einsteinHistory") || "[]"
-  ),
+  <link rel="stylesheet" href="/style.css">
+</head>
 
-  favorites: JSON.parse(
-    localStorage.getItem("einsteinFavorites") || "[]"
-  )
-};
+<body>
 
+  <!-- =====================================================
+       SIDEBAR
+  ====================================================== -->
 
-/* =========================================================
-   DOM
-========================================================= */
+  <aside class="sidebar" id="sidebar">
 
-const $ = (id) => document.getElementById(id);
+```
+<div class="brand">
 
-const problemInput = $("problemInput");
-const solveBtn = $("solveBtn");
+  <div class="brand-icon">E</div>
 
-const loadingOverlay = $("loadingOverlay");
+  <div class="brand-text">
+    <strong>EinsteinWeb</strong>
+    <span>Problem Solver</span>
+  </div>
 
-const solutionPage = $("solutionPage");
-const homePage = $("homePage");
-const historyPage = $("historyPage");
-const favoritesPage = $("favoritesPage");
+</div>
 
-const answerValue = $("answerValue");
-const stepsContainer = $("stepsContainer");
-const methodsContainer = $("methodsContainer");
-const graphContainer = $("graphContainer");
-const learningContainer = $("learningContainer");
 
-const solutionProblem = $("solutionProblem");
-const solutionSubject = $("solutionSubject");
+<button class="new-problem-btn" id="newProblemBtn">
+  <span>＋</span>
+  <span>Novo problema</span>
+</button>
 
-const selectedSubject = $("selectedSubject");
-const subjectSelectorText = $("subjectSelectorText");
-const subjectMenu = $("subjectMenu");
 
-const recentList = $("recentList");
-const historyContainer = $("historyContainer");
-const favoritesContainer = $("favoritesContainer");
+<nav class="navigation">
 
-const toast = $("toast");
-const toastText = $("toastText");
+  <button class="nav-item active" data-page="home">
+    <span class="nav-icon">⌂</span>
+    <span>Início</span>
+  </button>
 
+  <button class="nav-item" data-page="history">
+    <span class="nav-icon">◷</span>
+    <span>Histórico</span>
+  </button>
 
-/* =========================================================
-   SAFE HELPERS
-========================================================= */
+  <button class="nav-item" data-page="favorites">
+    <span class="nav-icon">☆</span>
+    <span>Favoritos</span>
+  </button>
 
-function escapeHTML(value) {
+</nav>
 
-  if (value === null || value === undefined) {
-    return "";
-  }
 
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
+<div class="sidebar-bottom">
 
+  <div class="brain-status">
 
-function showToast(message) {
+    <span class="status-dot"></span>
 
-  if (!toast || !toastText) {
-    console.log(message);
-    return;
-  }
+    <div>
+      <strong>Einstein Brain</strong>
+      <small>Online</small>
+    </div>
 
-  toastText.textContent = message;
+  </div>
 
-  toast.classList.add("show");
+  <div class="version">
+    V0.4
+  </div>
 
-  clearTimeout(window.__toastTimer);
+</div>
+```
 
-  window.__toastTimer =
-    setTimeout(() => {
-      toast.classList.remove("show");
-    }, 3500);
-}
+  </aside>
 
+  <!-- =====================================================
+       MOBILE HEADER
+  ====================================================== -->
 
-function showLoading(show) {
+  <header class="mobile-header">
 
-  if (!loadingOverlay) {
-    return;
-  }
+```
+<button
+  id="mobileMenu"
+  class="mobile-menu-btn"
+  aria-label="Abrir menu"
+>
+  ☰
+</button>
 
-  if (show) {
-    loadingOverlay.classList.remove("hidden");
-  } else {
-    loadingOverlay.classList.add("hidden");
-  }
-}
+<div class="mobile-brand">
 
+  <div class="brand-icon">E</div>
 
-function saveHistory() {
+  <strong>EinsteinWeb</strong>
 
-  localStorage.setItem(
-    "einsteinHistory",
-    JSON.stringify(state.history)
-  );
-}
+</div>
+```
 
+  </header>
 
-function saveFavorites() {
+  <!-- =====================================================
+       MAIN
+  ====================================================== -->
 
-  localStorage.setItem(
-    "einsteinFavorites",
-    JSON.stringify(state.favorites)
-  );
-}
+  <main class="main-content">
 
+```
+<!-- ===================================================
+     HOME
+==================================================== -->
 
-/* =========================================================
-   PAGE NAVIGATION
-========================================================= */
+<section id="homePage" class="page active-page">
 
-function showPage(page) {
+  <div class="hero">
 
-  document
-    .querySelectorAll(".page")
-    .forEach(section => {
-      section.classList.remove("active-page");
-    });
+    <div class="hero-badge">
 
+      <span class="status-dot"></span>
 
-  if (page === "home" && homePage) {
-    homePage.classList.add("active-page");
-  }
+      Einstein Brain V0.4
 
-  if (page === "history" && historyPage) {
-    historyPage.classList.add("active-page");
-    renderHistory();
-  }
+    </div>
 
-  if (page === "favorites" && favoritesPage) {
-    favoritesPage.classList.add("active-page");
-    renderFavorites();
-  }
 
-  if (page === "solution" && solutionPage) {
-    solutionPage.classList.add("active-page");
-  }
+    <h1>
+      Resolve.<br>
+      <span>Entenda.</span>
+    </h1>
 
 
-  document
-    .querySelectorAll(".nav-item")
-    .forEach(item => {
+    <p>
+      Matemática, Física e Química.
+      Não mostramos apenas a resposta —
+      mostramos como chegar lá.
+    </p>
 
-      item.classList.toggle(
-        "active",
-        item.dataset.page === page
-      );
+  </div>
 
-    });
 
+  <!-- SOLVER -->
 
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth"
-  });
-}
+  <div class="solver-card">
 
 
-/* =========================================================
-   SUBJECT
-========================================================= */
+    <div class="solver-top">
 
-const subjects = {
+      <div class="subject-selector" id="subjectSelector">
 
-  math: {
-    name: "Matemática",
-    symbol: "∑"
-  },
+        <button
+          class="subject-selector-btn"
+          id="subjectSelectorText"
+          type="button"
+        >
 
-  physics: {
-    name: "Física",
-    symbol: "⚡"
-  },
+          <span class="subject-symbol">∑</span>
 
-  chemistry: {
-    name: "Química",
-    symbol: "⚗"
-  }
+          <span>Matemática</span>
 
-};
+          <span class="selector-arrow">⌄</span>
 
+        </button>
 
-function setSubject(subject) {
 
-  if (!subjects[subject]) {
-    subject = "math";
-  }
+        <div class="subject-menu" id="subjectMenu">
 
-  state.subject = subject;
+          <button
+            class="subject-option active"
+            data-subject="math"
+            type="button"
+          >
 
-  const data = subjects[subject];
+            <span>∑</span>
 
+            <span>
+              <strong>Matemática</strong>
+              <small>Equações, funções e cálculos</small>
+            </span>
 
-  if (selectedSubject) {
-    selectedSubject.textContent =
-      data.name;
-  }
+          </button>
 
 
-  if (subjectSelectorText) {
+          <button
+            class="subject-option"
+            data-subject="physics"
+            type="button"
+          >
 
-    subjectSelectorText.innerHTML = `
-      <span class="subject-symbol">
-        ${data.symbol}
+            <span>⚡</span>
+
+            <span>
+              <strong>Física</strong>
+              <small>Fórmulas, unidades e problemas</small>
+            </span>
+
+          </button>
+
+
+          <button
+            class="subject-option"
+            data-subject="chemistry"
+            type="button"
+          >
+
+            <span>⚗</span>
+
+            <span>
+              <strong>Química</strong>
+              <small>Mol, massa, concentração</small>
+            </span>
+
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <div
+        class="selected-subject-label"
+        id="selectedSubject"
+      >
+        Matemática
+      </div>
+
+    </div>
+
+
+    <textarea
+      id="problemInput"
+      class="problem-input"
+      placeholder="Digite o seu problema aqui...
+```
+
+Exemplo:
+Resolva 2x + 5 = 15"
+spellcheck="false"
+autocomplete="off"
+></textarea>
+
+```
+    <div
+      id="imagePreview"
+      class="image-preview hidden"
+    ></div>
+
+
+    <div class="solver-bottom">
+
+      <div class="input-tools">
+
+        <button
+          id="imageBtn"
+          class="tool-btn"
+          type="button"
+          title="Adicionar imagem"
+          aria-label="Adicionar imagem"
+        >
+          📷
+        </button>
+
+
+        <input
+          type="file"
+          id="imageInput"
+          accept="image/*"
+          hidden
+        >
+
+
+        <button
+          id="voiceBtn"
+          class="tool-btn"
+          type="button"
+          title="Entrada por voz"
+          aria-label="Entrada por voz"
+        >
+          🎙
+        </button>
+
+      </div>
+
+
+      <button
+        id="solveBtn"
+        class="solve-btn"
+        type="button"
+      >
+
+        <span>Resolver</span>
+
+        <span class="solve-arrow">→</span>
+
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <!-- QUICK ACTIONS -->
+
+  <div class="section-heading">
+    <span>Começar rapidamente</span>
+  </div>
+
+
+  <div class="quick-grid">
+
+    <button
+      class="quick-card"
+      id="scanCard"
+      type="button"
+    >
+
+      <div class="quick-icon">📷</div>
+
+      <div class="quick-card-text">
+
+        <strong>Fotografar problema</strong>
+
+        <span>Envie uma imagem</span>
+
+      </div>
+
+      <span class="quick-arrow">→</span>
+
+    </button>
+
+
+    <button
+      class="quick-card"
+      id="typeCard"
+      type="button"
+    >
+
+      <div class="quick-icon">⌨</div>
+
+      <div class="quick-card-text">
+
+        <strong>Digitar problema</strong>
+
+        <span>Escreva a pergunta</span>
+
+      </div>
+
+      <span class="quick-arrow">→</span>
+
+    </button>
+
+  </div>
+
+
+  <!-- SUBJECTS -->
+
+  <div class="section-heading subject-heading">
+    <span>Áreas</span>
+  </div>
+
+
+  <div class="subject-cards">
+
+
+    <button
+      class="subject-card math-card"
+      data-subject="math"
+      type="button"
+    >
+
+      <div class="subject-card-icon">∑</div>
+
+      <div class="subject-card-content">
+
+        <strong>Matemática</strong>
+
+        <span>Equações • Funções • Álgebra</span>
+
+      </div>
+
+      <span class="subject-card-arrow">→</span>
+
+    </button>
+
+
+    <button
+      class="subject-card physics-card"
+      data-subject="physics"
+      type="button"
+    >
+
+      <div class="subject-card-icon">⚡</div>
+
+      <div class="subject-card-content">
+
+        <strong>Física</strong>
+
+        <span>Força • Velocidade • Energia</span>
+
+      </div>
+
+      <span class="subject-card-arrow">→</span>
+
+    </button>
+
+
+    <button
+      class="subject-card chemistry-card"
+      data-subject="chemistry"
+      type="button"
+    >
+
+      <div class="subject-card-icon">⚗</div>
+
+      <div class="subject-card-content">
+
+        <strong>Química</strong>
+
+        <span>Mol • Massa • Concentração</span>
+
+      </div>
+
+      <span class="subject-card-arrow">→</span>
+
+    </button>
+
+  </div>
+
+
+  <!-- RECENT -->
+
+  <div class="recent-section">
+
+    <div class="section-heading">
+
+      <span>Problemas recentes</span>
+
+      <button
+        id="viewHistory"
+        type="button"
+      >
+        Ver tudo →
+      </button>
+
+    </div>
+
+
+    <div
+      id="recentList"
+      class="recent-list"
+    >
+
+      <div class="empty-state">
+
+        <span>◷</span>
+
+        <p>
+          Os seus problemas recentes aparecerão aqui.
+        </p>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+<!-- ===================================================
+     SOLUTION
+==================================================== -->
+
+<section
+  id="solutionPage"
+  class="page"
+>
+
+  <div class="solution-header">
+
+    <button
+      id="backBtn"
+      class="back-btn"
+      type="button"
+      aria-label="Voltar"
+    >
+      ←
+    </button>
+
+
+    <div class="solution-title">
+
+      <span
+        id="solutionSubject"
+        class="solution-subject"
+      >
+        Matemática
       </span>
 
-      <span>
-        ${data.name}
-      </span>
 
-      <span class="selector-arrow">⌄</span>
-    `;
+      <h2 id="solutionProblem">
+        Problema
+      </h2>
 
-  }
+    </div>
 
 
-  document
-    .querySelectorAll(".subject-option")
-    .forEach(option => {
+    <button
+      id="favoriteBtn"
+      class="favorite-btn"
+      type="button"
+      aria-label="Adicionar aos favoritos"
+    >
+      ☆
+    </button>
 
-      option.classList.toggle(
-        "active",
-        option.dataset.subject === subject
-      );
+  </div>
 
-    });
 
+  <!-- TABS -->
 
-  document
-    .querySelectorAll(".subject-card")
-    .forEach(card => {
+  <div class="solution-tabs">
 
-      card.classList.toggle(
-        "active",
-        card.dataset.subject === subject
-      );
+    <button
+      class="solution-tab active"
+      data-tab="solution"
+      type="button"
+    >
+      Solução
+    </button>
 
-    });
+    <button
+      class="solution-tab"
+      data-tab="methods"
+      type="button"
+    >
+      Métodos
+    </button>
 
+    <button
+      class="solution-tab"
+      data-tab="graph"
+      type="button"
+    >
+      Gráfico
+    </button>
 
-  if (subjectMenu) {
-    subjectMenu.classList.remove("open");
-  }
+    <button
+      class="solution-tab"
+      data-tab="learn"
+      type="button"
+    >
+      Aprender
+    </button>
 
-}
+  </div>
 
 
-/* =========================================================
-   SUBJECT MENU
-========================================================= */
+  <!-- SOLUTION TAB -->
 
-if (subjectSelectorText) {
+  <div
+    id="solutionTab"
+    class="solution-tab-content active"
+  >
 
-  subjectSelectorText.addEventListener(
-    "click",
-    () => {
+    <div class="answer-card">
 
-      if (subjectMenu) {
-        subjectMenu.classList.toggle("open");
-      }
-
-    }
-  );
-
-}
-
-
-document
-  .querySelectorAll(".subject-option")
-  .forEach(option => {
-
-    option.addEventListener(
-      "click",
-      () => {
-
-        setSubject(
-          option.dataset.subject
-        );
-
-      }
-    );
-
-  });
-
-
-document
-  .querySelectorAll(".subject-card")
-  .forEach(card => {
-
-    card.addEventListener(
-      "click",
-      () => {
-
-        setSubject(
-          card.dataset.subject
-        );
-
-        if (problemInput) {
-          problemInput.focus();
-        }
-
-      }
-    );
-
-  });
-
-
-/* =========================================================
-   CLOSE SUBJECT MENU
-========================================================= */
-
-document.addEventListener(
-  "click",
-  event => {
-
-    if (
-      subjectMenu &&
-      subjectSelectorText &&
-      !subjectMenu.contains(event.target) &&
-      !subjectSelectorText.contains(event.target)
-    ) {
-
-      subjectMenu.classList.remove("open");
-
-    }
-
-  }
-);
-
-
-/* =========================================================
-   API REQUEST
-========================================================= */
-
-async function solveProblem() {
-
-  if (!problemInput || !solveBtn) {
-    return;
-  }
-
-
-  const problem =
-    problemInput.value.trim();
-
-
-  if (!problem) {
-
-    showToast(
-      "Digite um problema primeiro."
-    );
-
-    problemInput.focus();
-
-    return;
-  }
-
-
-  state.currentProblem =
-    problem;
-
-
-  showLoading(true);
-
-  solveBtn.disabled = true;
-
-
-  try {
-
-    console.log(
-      "EinsteinWeb → enviando problema:",
-      problem
-    );
-
-    console.log(
-      "EinsteinWeb → disciplina:",
-      state.subject
-    );
-
-
-    const response =
-      await fetch(
-        "/api/solve",
-        {
-
-          method: "POST",
-
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-
-          body: JSON.stringify({
-
-            problem,
-
-            subject:
-              state.subject
-
-          })
-
-        }
-      );
-
-
-    console.log(
-      "EinsteinWeb → HTTP:",
-      response.status
-    );
-
-
-    const rawText =
-      await response.text();
-
-
-    console.log(
-      "EinsteinWeb → resposta:",
-      rawText
-    );
-
-
-    let data;
-
-
-    try {
-
-      data =
-        JSON.parse(rawText);
-
-    } catch {
-
-      throw new Error(
-        "O servidor respondeu com um formato inválido."
-      );
-
-    }
-
-
-    if (!response.ok || !data.success) {
-
-      throw new Error(
-        data.error ||
-        `Erro do servidor (${response.status}).`
-      );
-
-    }
-
-
-    if (
-      !data.result ||
-      typeof data.result !== "object"
-    ) {
-
-      throw new Error(
-        "O servidor não devolveu uma solução válida."
-      );
-
-    }
-
-
-    state.currentResult =
-      data.result;
-
-
-    addToHistory({
-
-      problem,
-
-      subject:
-        state.subject,
-
-      result:
-        data.result
-
-    });
-
-
-    renderSolution(
-      problem,
-      state.subject,
-      data.result
-    );
-
-
-    showPage("solution");
-
-
-  } catch (error) {
-
-    console.error(
-      "EinsteinWeb solve error:",
-      error
-    );
-
-
-    showToast(
-      error.message ||
-      "Não foi possível resolver o problema."
-    );
-
-
-  } finally {
-
-    showLoading(false);
-
-    solveBtn.disabled = false;
-
-  }
-
-}
-
-
-/* =========================================================
-   SOLVE BUTTON
-========================================================= */
-
-if (solveBtn) {
-
-  solveBtn.addEventListener(
-    "click",
-    solveProblem
-  );
-
-}
-
-
-/* =========================================================
-   ENTER / CTRL+ENTER
-========================================================= */
-
-if (problemInput) {
-
-  problemInput.addEventListener(
-    "keydown",
-    event => {
-
-      if (
-        event.key === "Enter" &&
-        (event.ctrlKey || event.metaKey)
-      ) {
-
-        event.preventDefault();
-
-        solveProblem();
-
-      }
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   RENDER SOLUTION
-========================================================= */
-
-function renderSolution(
-  problem,
-  subject,
-  result
-) {
-
-  if (solutionProblem) {
-
-    solutionProblem.textContent =
-      problem;
-
-  }
-
-
-  if (solutionSubject) {
-
-    solutionSubject.textContent =
-      subjects[subject]?.name ||
-      subject;
-
-  }
-
-
-  if (answerValue) {
-
-    answerValue.textContent =
-      result.answer ||
-      "Resultado não disponível.";
-
-  }
-
-
-  renderSteps(
-    result.steps || []
-  );
-
-
-  renderMethods(
-    result.methods || []
-  );
-
-
-  renderGraph(
-    result.graph
-  );
-
-
-  renderLearning(
-    result.learning
-  );
-
-
-  resetTabs();
-
-}
-
-
-/* =========================================================
-   STEPS
-========================================================= */
-
-function renderSteps(steps) {
-
-  if (!stepsContainer) {
-    return;
-  }
-
-
-  if (!Array.isArray(steps) || steps.length === 0) {
-
-    stepsContainer.innerHTML = `
-      <div class="empty-state">
-        <p>Não foram fornecidos passos.</p>
+      <div class="answer-label">
+        RESPOSTA
       </div>
-    `;
 
-    return;
-  }
-
-
-  stepsContainer.innerHTML =
-    steps
-      .map((step, index) => {
-
-        return `
-          <div class="step-card">
-
-            <div class="step-number">
-              ${index + 1}
-            </div>
-
-            <div class="step-content">
-
-              <h3>
-                ${escapeHTML(
-                  step.title ||
-                  `Passo ${index + 1}`
-                )}
-              </h3>
-
-              ${
-                step.description
-                  ? `
-                    <p>
-                      ${escapeHTML(
-                        step.description
-                      )}
-                    </p>
-                  `
-                  : ""
-              }
-
-              ${
-                step.formula
-                  ? `
-                    <div class="formula">
-                      ${escapeHTML(
-                        step.formula
-                      )}
-                    </div>
-                  `
-                  : ""
-              }
-
-            </div>
-
-          </div>
-        `;
-
-      })
-      .join("");
-
-}
-
-
-/* =========================================================
-   METHODS
-========================================================= */
-
-function renderMethods(methods) {
-
-  if (!methodsContainer) {
-    return;
-  }
-
-
-  if (!Array.isArray(methods) || methods.length === 0) {
-
-    methodsContainer.innerHTML = `
-      <div class="empty-state">
-        <p>Nenhum método adicional disponível.</p>
+      <div
+        id="answerValue"
+        class="answer-value"
+      >
+        —
       </div>
-    `;
 
-    return;
-  }
+    </div>
 
 
-  methodsContainer.innerHTML =
-    methods
-      .map(method => {
+    <div class="steps-section">
 
-        return `
-          <div class="method-card">
+      <div class="content-title">
+        <span>Como resolver</span>
+      </div>
 
-            <div class="method-content">
+      <div
+        id="stepsContainer"
+        class="steps-container"
+      ></div>
 
-              <h3>
-                ${escapeHTML(
-                  method.name ||
-                  "Método"
-                )}
-              </h3>
+    </div>
 
-              ${
-                method.description
-                  ? `
-                    <p>
-                      ${escapeHTML(
-                        method.description
-                      )}
-                    </p>
-                  `
-                  : ""
-              }
-
-              ${
-                method.result
-                  ? `
-                    <div class="formula">
-                      ${escapeHTML(
-                        method.result
-                      )}
-                    </div>
-                  `
-                  : ""
-              }
-
-            </div>
-
-          </div>
-        `;
-
-      })
-      .join("");
-
-}
+  </div>
 
 
-/* =========================================================
-   GRAPH
-========================================================= */
+  <!-- METHODS -->
 
-function renderGraph(graph) {
+  <div
+    id="methodsTab"
+    class="solution-tab-content"
+  >
 
-  if (!graphContainer) {
-    return;
-  }
+    <div class="content-title">
+      <span>Métodos disponíveis</span>
+    </div>
+
+    <div
+      id="methodsContainer"
+      class="methods-container"
+    ></div>
+
+  </div>
 
 
-  if (
-    !graph ||
-    !Array.isArray(graph.points) ||
-    graph.points.length === 0
-  ) {
+  <!-- GRAPH -->
 
-    graphContainer.innerHTML = `
+  <div
+    id="graphTab"
+    class="solution-tab-content"
+  >
+
+    <div class="content-title">
+      <span>Visualização</span>
+    </div>
+
+
+    <div
+      id="graphContainer"
+      class="graph-container"
+    >
+
       <div class="graph-empty">
 
         <div>📈</div>
@@ -820,1317 +652,175 @@ function renderGraph(graph) {
         </p>
 
       </div>
-    `;
-
-    return;
-  }
-
-
-  /*
-    Não dependemos de nenhuma biblioteca externa.
-    Criamos uma representação simples dos pontos.
-  */
-
-  const points =
-    graph.points;
-
-
-  const xs =
-    points.map(p => Number(p.x));
-
-  const ys =
-    points.map(p => Number(p.y));
-
-
-  const minX =
-    Math.min(...xs);
-
-  const maxX =
-    Math.max(...xs);
-
-  const minY =
-    Math.min(...ys);
-
-  const maxY =
-    Math.max(...ys);
-
-
-  const width = 700;
-  const height = 350;
-
-  const padding = 35;
-
-
-  function mapX(x) {
-
-    if (maxX === minX) {
-      return width / 2;
-    }
-
-    return padding +
-      ((x - minX) /
-      (maxX - minX)) *
-      (width - padding * 2);
-
-  }
-
-
-  function mapY(y) {
-
-    if (maxY === minY) {
-      return height / 2;
-    }
-
-    return height -
-      padding -
-      ((y - minY) /
-      (maxY - minY)) *
-      (height - padding * 2);
-
-  }
-
-
-  const pathData =
-    points
-      .map((point, index) => {
-
-        const x =
-          mapX(Number(point.x));
-
-        const y =
-          mapY(Number(point.y));
-
-        return `${index === 0 ? "M" : "L"} ${x} ${y}`;
-
-      })
-      .join(" ");
-
-
-  const zeroY =
-    minY <= 0 && maxY >= 0
-      ? mapY(0)
-      : null;
-
-
-  const zeroX =
-    minX <= 0 && maxX >= 0
-      ? mapX(0)
-      : null;
-
-
-  graphContainer.innerHTML = `
-
-    <div class="graph-wrapper">
-
-      <svg
-        viewBox="0 0 ${width} ${height}"
-        class="einstein-graph"
-        preserveAspectRatio="none"
-      >
-
-        ${
-          zeroY !== null
-            ? `
-              <line
-                x1="${padding}"
-                y1="${zeroY}"
-                x2="${width - padding}"
-                y2="${zeroY}"
-                class="graph-axis"
-              />
-            `
-            : ""
-        }
-
-        ${
-          zeroX !== null
-            ? `
-              <line
-                x1="${zeroX}"
-                y1="${padding}"
-                x2="${zeroX}"
-                y2="${height - padding}"
-                class="graph-axis"
-              />
-            `
-            : ""
-        }
-
-        <path
-          d="${pathData}"
-          class="graph-line"
-          fill="none"
-        />
-
-      </svg>
-
-      <div class="graph-info">
-        ${escapeHTML(
-          graph.type ||
-          "gráfico"
-        )}
-      </div>
 
     </div>
 
-  `;
+  </div>
 
-}
 
+  <!-- LEARN -->
 
-/* =========================================================
-   LEARNING
-========================================================= */
+  <div
+    id="learnTab"
+    class="solution-tab-content"
+  >
 
-function renderLearning(learning) {
+    <div class="content-title">
+      <span>Aprender</span>
+    </div>
 
-  if (!learningContainer) {
-    return;
-  }
+    <div
+      id="learningContainer"
+      class="learning-container"
+    ></div>
 
+  </div>
 
-  if (!learning) {
+</section>
 
-    learningContainer.innerHTML = `
-      <div class="empty-state">
-        <p>Não há explicação adicional.</p>
-      </div>
-    `;
 
-    return;
-  }
+<!-- ===================================================
+     HISTORY
+==================================================== -->
 
+<section
+  id="historyPage"
+  class="page"
+>
 
-  learningContainer.innerHTML = `
+  <div class="page-header">
 
-    ${
-      learning.concept
-        ? `
-          <div class="learning-card">
+    <div>
 
-            <h3>Conceito</h3>
+      <span class="page-eyebrow">
+        EinsteinWeb
+      </span>
 
-            <p>
-              ${escapeHTML(
-                learning.concept
-              )}
-            </p>
+      <h2>Histórico</h2>
 
-          </div>
-        `
-        : ""
-    }
+      <p>
+        Os problemas que resolveste anteriormente.
+      </p>
 
+    </div>
 
-    ${
-      learning.explanation
-        ? `
-          <div class="learning-card">
 
-            <h3>Explicação</h3>
+    <button
+      id="historyNewProblem"
+      class="primary-small-btn"
+      type="button"
+    >
+      + Novo problema
+    </button>
 
-            <p>
-              ${escapeHTML(
-                learning.explanation
-              )}
-            </p>
+  </div>
 
-          </div>
-        `
-        : ""
-    }
 
+  <div
+    id="historyContainer"
+    class="history-container"
+  ></div>
 
-    ${
-      learning.tip
-        ? `
-          <div class="learning-card">
+</section>
 
-            <h3>Dica</h3>
 
-            <p>
-              ${escapeHTML(
-                learning.tip
-              )}
-            </p>
+<!-- ===================================================
+     FAVORITES
+==================================================== -->
 
-          </div>
-        `
-        : ""
-    }
+<section
+  id="favoritesPage"
+  class="page"
+>
 
-  `;
+  <div class="page-header">
 
-}
+    <div>
 
+      <span class="page-eyebrow">
+        EinsteinWeb
+      </span>
 
-/* =========================================================
-   TABS
-========================================================= */
+      <h2>Favoritos</h2>
 
-function resetTabs() {
+      <p>
+        Problemas que guardaste para rever.
+      </p>
 
-  document
-    .querySelectorAll(".solution-tab")
-    .forEach(tab => {
+    </div>
 
-      tab.classList.toggle(
-        "active",
-        tab.dataset.tab === "solution"
-      );
+  </div>
 
-    });
 
+  <div
+    id="favoritesContainer"
+    class="history-container"
+  >
 
-  document
-    .querySelectorAll(".solution-tab-content")
-    .forEach(content => {
+    <div class="empty-state large">
 
-      content.classList.remove("active");
+      <span>☆</span>
 
-    });
+      <p>
+        Ainda não tens problemas favoritos.
+      </p>
 
+    </div>
 
-  const solutionTab =
-    $("solutionTab");
+  </div>
 
-  if (solutionTab) {
-    solutionTab.classList.add("active");
-  }
-
-}
-
-
-document
-  .querySelectorAll(".solution-tab")
-  .forEach(tab => {
-
-    tab.addEventListener(
-      "click",
-      () => {
-
-        const target =
-          tab.dataset.tab;
-
-
-        document
-          .querySelectorAll(".solution-tab")
-          .forEach(item => {
-
-            item.classList.toggle(
-              "active",
-              item === tab
-            );
-
-          });
-
-
-        document
-          .querySelectorAll(".solution-tab-content")
-          .forEach(content => {
-
-            content.classList.remove(
-              "active"
-            );
-
-          });
-
-
-        const targetElement =
-          $(`${target}Tab`);
-
-        if (targetElement) {
-
-          targetElement.classList.add(
-            "active"
-          );
-
-        }
-
-      }
-    );
-
-  });
-
-
-/* =========================================================
-   HISTORY
-========================================================= */
-
-function addToHistory(item) {
-
-  const entry = {
-
-    id:
-      Date.now(),
-
-    problem:
-      item.problem,
-
-    subject:
-      item.subject,
-
-    result:
-      item.result,
-
-    createdAt:
-      new Date().toISOString()
-
-  };
-
-
-  state.history =
-    [
-      entry,
-      ...state.history
-    ].slice(0, 50);
-
-
-  saveHistory();
-
-  renderRecent();
-
-}
-
-
-function renderRecent() {
-
-  if (!recentList) {
-    return;
-  }
-
-
-  if (state.history.length === 0) {
-
-    recentList.innerHTML = `
-      <div class="empty-state">
-
-        <span>◷</span>
-
-        <p>
-          Os seus problemas recentes aparecerão aqui.
-        </p>
-
-      </div>
-    `;
-
-    return;
-  }
-
-
-  recentList.innerHTML =
-    state.history
-      .slice(0, 5)
-      .map(item => {
-
-        return `
-          <button
-            class="recent-item"
-            type="button"
-            data-history-id="${item.id}"
-          >
-
-            <div>
-
-              <strong>
-                ${escapeHTML(
-                  item.problem
-                )}
-              </strong>
-
-              <small>
-                ${
-                  subjects[item.subject]?.name ||
-                  item.subject
-                }
-              </small>
-
-            </div>
-
-            <span>→</span>
-
-          </button>
-        `;
-
-      })
-      .join("");
-
-
-  recentList
-    .querySelectorAll(
-      "[data-history-id]"
-    )
-    .forEach(button => {
-
-      button.addEventListener(
-        "click",
-        () => {
-
-          const item =
-            state.history.find(
-              entry =>
-                String(entry.id) ===
-                button.dataset.historyId
-            );
-
-
-          if (!item) {
-            return;
-          }
-
-
-          state.currentProblem =
-            item.problem;
-
-          state.currentResult =
-            item.result;
-
-
-          if (problemInput) {
-            problemInput.value =
-              item.problem;
-          }
-
-
-          setSubject(
-            item.subject
-          );
-
-
-          renderSolution(
-            item.problem,
-            item.subject,
-            item.result
-          );
-
-
-          showPage("solution");
-
-        }
-      );
-
-    });
-
-}
-
-
-function renderHistory() {
-
-  if (!historyContainer) {
-    return;
-  }
-
-
-  if (state.history.length === 0) {
-
-    historyContainer.innerHTML = `
-      <div class="empty-state large">
-
-        <span>◷</span>
-
-        <p>
-          Ainda não tens problemas no histórico.
-        </p>
-
-      </div>
-    `;
-
-    return;
-  }
-
-
-  historyContainer.innerHTML =
-    state.history
-      .map(item => {
-
-        return `
-          <div
-            class="history-item"
-            data-history-id="${item.id}"
-          >
-
-            <div>
-
-              <span class="history-subject">
-                ${
-                  subjects[item.subject]?.name ||
-                  item.subject
-                }
-              </span>
-
-              <h3>
-                ${escapeHTML(
-                  item.problem
-                )}
-              </h3>
-
-              <p>
-                ${
-                  escapeHTML(
-                    item.result?.answer ||
-                    ""
-                  )
-                }
-              </p>
-
-            </div>
-
-            <button
-              type="button"
-              class="history-open-btn"
-            >
-              Abrir →
-            </button>
-
-          </div>
-        `;
-
-      })
-      .join("");
-
-
-  historyContainer
-    .querySelectorAll(
-      ".history-item"
-    )
-    .forEach(itemElement => {
-
-      const id =
-        Number(
-          itemElement.dataset.historyId
-        );
-
-
-      const item =
-        state.history.find(
-          entry => entry.id === id
-        );
-
-
-      const button =
-        itemElement.querySelector(
-          ".history-open-btn"
-        );
-
-
-      if (button && item) {
-
-        button.addEventListener(
-          "click",
-          () => {
-
-            if (problemInput) {
-              problemInput.value =
-                item.problem;
-            }
-
-
-            setSubject(
-              item.subject
-            );
-
-
-            renderSolution(
-              item.problem,
-              item.subject,
-              item.result
-            );
-
-
-            showPage("solution");
-
-          }
-        );
-
-      }
-
-    });
-
-}
-
-
-/* =========================================================
-   FAVORITES
-========================================================= */
-
-function isFavorite(problem) {
-
-  return state.favorites.some(
-    item =>
-      item.problem === problem
-  );
-
-}
-
-
-function toggleFavorite() {
-
-  if (!state.currentProblem) {
-    return;
-  }
-
-
-  const index =
-    state.favorites.findIndex(
-      item =>
-        item.problem ===
-        state.currentProblem
-    );
-
-
-  if (index >= 0) {
-
-    state.favorites.splice(
-      index,
-      1
-    );
-
-    showToast(
-      "Removido dos favoritos."
-    );
-
-  } else {
-
-    state.favorites.unshift({
-
-      id:
-        Date.now(),
-
-      problem:
-        state.currentProblem,
-
-      subject:
-        state.subject,
-
-      result:
-        state.currentResult
-
-    });
-
-    showToast(
-      "Adicionado aos favoritos."
-    );
-
-  }
-
-
-  saveFavorites();
-
-  updateFavoriteButton();
-
-  renderFavorites();
-
-}
-
-
-function updateFavoriteButton() {
-
-  const button =
-    $("favoriteBtn");
-
-  if (!button) {
-    return;
-  }
-
-
-  if (
-    isFavorite(
-      state.currentProblem
-    )
-  ) {
-
-    button.textContent = "★";
-
-  } else {
-
-    button.textContent = "☆";
-
-  }
-
-}
-
-
-function renderFavorites() {
-
-  if (!favoritesContainer) {
-    return;
-  }
-
-
-  if (state.favorites.length === 0) {
-
-    favoritesContainer.innerHTML = `
-      <div class="empty-state large">
-
-        <span>☆</span>
-
-        <p>
-          Ainda não tens problemas favoritos.
-        </p>
-
-      </div>
-    `;
-
-    return;
-  }
-
-
-  favoritesContainer.innerHTML =
-    state.favorites
-      .map(item => {
-
-        return `
-          <div class="history-item">
-
-            <div>
-
-              <span class="history-subject">
-                ${
-                  subjects[item.subject]?.name ||
-                  item.subject
-                }
-              </span>
-
-              <h3>
-                ${escapeHTML(
-                  item.problem
-                )}
-              </h3>
-
-              <p>
-                ${
-                  escapeHTML(
-                    item.result?.answer ||
-                    ""
-                  )
-                }
-              </p>
-
-            </div>
-
-            <button
-              type="button"
-              class="history-open-btn favorite-open"
-              data-favorite-id="${item.id}"
-            >
-              Abrir →
-            </button>
-
-          </div>
-        `;
-
-      })
-      .join("");
-
-
-  favoritesContainer
-    .querySelectorAll(
-      ".favorite-open"
-    )
-    .forEach(button => {
-
-      button.addEventListener(
-        "click",
-        () => {
-
-          const id =
-            Number(
-              button.dataset.favoriteId
-            );
-
-
-          const item =
-            state.favorites.find(
-              entry =>
-                entry.id === id
-            );
-
-
-          if (!item) {
-            return;
-          }
-
-
-          if (problemInput) {
-            problemInput.value =
-              item.problem;
-          }
-
-
-          setSubject(
-            item.subject
-          );
-
-
-          state.currentProblem =
-            item.problem;
-
-          state.currentResult =
-            item.result;
-
-
-          renderSolution(
-            item.problem,
-            item.subject,
-            item.result
-          );
-
-
-          showPage("solution");
-
-        }
-      );
-
-    });
-
-}
-
-
-const favoriteBtn =
-  $("favoriteBtn");
-
-
-if (favoriteBtn) {
-
-  favoriteBtn.addEventListener(
-    "click",
-    toggleFavorite
-  );
-
-}
-
-
-/* =========================================================
-   BACK BUTTON
-========================================================= */
-
-const backBtn =
-  $("backBtn");
-
-
-if (backBtn) {
-
-  backBtn.addEventListener(
-    "click",
-    () => {
-
-      showPage("home");
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   NEW PROBLEM
-========================================================= */
-
-function newProblem() {
-
-  if (problemInput) {
-    problemInput.value = "";
-  }
-
-
-  state.currentProblem = "";
-  state.currentResult = null;
-
-
-  showPage("home");
-
-
-  setTimeout(() => {
-
-    if (problemInput) {
-      problemInput.focus();
-    }
-
-  }, 100);
-
-}
-
-
-const newProblemBtn =
-  $("newProblemBtn");
-
-
-if (newProblemBtn) {
-
-  newProblemBtn.addEventListener(
-    "click",
-    newProblem
-  );
-
-}
-
-
-const historyNewProblem =
-  $("historyNewProblem");
-
-
-if (historyNewProblem) {
-
-  historyNewProblem.addEventListener(
-    "click",
-    newProblem
-  );
-
-}
-
-
-const typeCard =
-  $("typeCard");
-
-
-if (typeCard) {
-
-  typeCard.addEventListener(
-    "click",
-    () => {
-
-      if (problemInput) {
-        problemInput.focus();
-      }
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   HISTORY NAVIGATION
-========================================================= */
-
-document
-  .querySelectorAll(".nav-item")
-  .forEach(item => {
-
-    item.addEventListener(
-      "click",
-      () => {
-
-        showPage(
-          item.dataset.page
-        );
-
-      }
-    );
-
-  });
-
-
-const viewHistory =
-  $("viewHistory");
-
-
-if (viewHistory) {
-
-  viewHistory.addEventListener(
-    "click",
-    () => {
-
-      showPage("history");
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   IMAGE INPUT
-========================================================= */
-
-const imageBtn =
-  $("imageBtn");
-
-const imageInput =
-  $("imageInput");
-
-const imagePreview =
-  $("imagePreview");
-
-const scanCard =
-  $("scanCard");
-
-
-function openImagePicker() {
-
-  if (imageInput) {
-    imageInput.click();
-  }
-
-}
-
-
-if (imageBtn) {
-
-  imageBtn.addEventListener(
-    "click",
-    openImagePicker
-  );
-
-}
-
-
-if (scanCard) {
-
-  scanCard.addEventListener(
-    "click",
-    openImagePicker
-  );
-
-}
-
-
-if (imageInput) {
-
-  imageInput.addEventListener(
-    "change",
-    () => {
-
-      const file =
-        imageInput.files?.[0];
-
-
-      if (!file) {
-        return;
-      }
-
-
-      if (!file.type.startsWith("image/")) {
-
-        showToast(
-          "Seleciona uma imagem válida."
-        );
-
-        return;
-      }
-
-
-      const reader =
-        new FileReader();
-
-
-      reader.onload =
-        event => {
-
-          if (!imagePreview) {
-            return;
-          }
-
-
-          imagePreview.innerHTML = `
-
-            <img
-              src="${event.target.result}"
-              alt="Imagem do problema"
-            >
-
-          `;
-
-
-          imagePreview.classList.remove(
-            "hidden"
-          );
-
-        };
-
-
-      reader.readAsDataURL(file);
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   VOICE INPUT
-========================================================= */
-
-const voiceBtn =
-  $("voiceBtn");
-
-
-if (voiceBtn) {
-
-  voiceBtn.addEventListener(
-    "click",
-    () => {
-
-      const SpeechRecognition =
-        window.SpeechRecognition ||
-        window.webkitSpeechRecognition;
-
-
-      if (!SpeechRecognition) {
-
-        showToast(
-          "O reconhecimento de voz não é suportado neste navegador."
-        );
-
-        return;
-
-      }
-
-
-      const recognition =
-        new SpeechRecognition();
-
-
-      recognition.lang =
-        "pt-PT";
-
-
-      recognition.interimResults =
-        false;
-
-
-      recognition.continuous =
-        false;
-
-
-      voiceBtn.classList.add(
-        "recording"
-      );
-
-
-      recognition.start();
-
-
-      recognition.onresult =
-        event => {
-
-          const transcript =
-            event.results[0][0].transcript;
-
-
-          if (problemInput) {
-
-            problemInput.value =
-              problemInput.value
-                ? `${problemInput.value} ${transcript}`
-                : transcript;
-
-          }
-
-        };
-
-
-      recognition.onerror =
-        error => {
-
-          console.error(
-            "Voice error:",
-            error
-          );
-
-          showToast(
-            "Não foi possível reconhecer a voz."
-          );
-
-        };
-
-
-      recognition.onend =
-        () => {
-
-          voiceBtn.classList.remove(
-            "recording"
-          );
-
-        };
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   API STATUS
-========================================================= */
-
-async function checkAPI() {
-
-  try {
-
-    const response =
-      await fetch(
-        "/api/status"
-      );
-
-
-    if (!response.ok) {
-      throw new Error("API offline");
-    }
-
-
-    const data =
-      await response.json();
-
-
-    console.log(
-      "EinsteinWeb API:",
-      data
-    );
-
-
-  } catch (error) {
-
-    console.warn(
-      "EinsteinWeb API status error:",
-      error
-    );
-
-  }
-
-}
-
-
-/* =========================================================
-   INITIALIZATION
-========================================================= */
-
-function initialize() {
-
-  console.log(
-    "========================================"
-  );
-
-  console.log(
-    "EinsteinWeb Frontend V0.4"
-  );
-
-  console.log(
-    "Frontend carregado."
-  );
-
-  console.log(
-    "API:",
-    "/api/solve"
-  );
-
-  console.log(
-    "========================================"
-  );
-
-
-  setSubject("math");
-
-  renderRecent();
-
-  renderHistory();
-
-  renderFavorites();
-
-  checkAPI();
-
-}
-
-
-initialize();
+</section>
 ```
+
+  </main>
+
+  <!-- =====================================================
+       LOADING
+  ====================================================== -->
+
+  <div
+    id="loadingOverlay"
+    class="loading-overlay hidden"
+  >
+
+```
+<div class="loading-card">
+
+  <div class="loader"></div>
+
+  <strong>
+    Einstein está a pensar...
+  </strong>
+
+  <span>
+    Analisando o problema
+  </span>
+
+</div>
+```
+
+  </div>
+
+  <!-- =====================================================
+       TOAST
+  ====================================================== -->
+
+  <div
+    id="toast"
+    class="toast"
+    role="status"
+    aria-live="polite"
+  >
+
+```
+<span id="toastText">
+  Mensagem
+</span>
+```
+
+  </div>
+
+  <script src="/script.js"></script>
+
+</body>
+</html>
