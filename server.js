@@ -1,6 +1,7 @@
+```javascript
 /* =========================================================
    EINSTEINWEB
-   Einstein Brain V0.4
+   Einstein Brain V0.5
    Mathematics + Physics + Chemistry
 ========================================================= */
 
@@ -9,10 +10,9 @@ const path = require("path");
 const math = require("mathjs");
 
 const app = express();
+
 const PORT = process.env.PORT || 3000;
-
 const publicPath = path.join(__dirname, "public");
-
 
 /* =========================================================
    EXPRESS
@@ -23,1625 +23,1856 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 app.use(express.static(publicPath));
 
-
 /* =========================================================
    UTILITIES
 ========================================================= */
 
 function cleanProblem(problem) {
-    if (typeof problem !== "string") return "";
-    return problem.trim().replace(/\s+/g, " ");
-}
+  if (typeof problem !== "string") return "";
 
+  return problem
+    .trim()
+    .replace(/\s+/g, " ");
+}
 
 function formatNumber(value) {
-    if (typeof value !== "number") return String(value);
-    if (!Number.isFinite(value)) return String(value);
+  if (typeof value !== "number") return String(value);
 
-    if (Math.abs(value) < 1e-10) {
-        return "0";
-    }
+  if (!Number.isFinite(value)) return String(value);
 
-    const rounded = Math.round(value * 1e8) / 1e8;
+  if (Math.abs(value) < 1e-10) {
+    return "0";
+  }
 
-    return String(rounded);
+  const rounded = Math.round(value * 1e10) / 1e10;
+
+  return String(rounded);
 }
-
 
 function round(value, decimals = 4) {
-    const factor = Math.pow(10, decimals);
-    return Math.round(value * factor) / factor;
-}
+  const factor = Math.pow(10, decimals);
 
+  return Math.round(value * factor) / factor;
+}
 
 function normalizeExpression(expression) {
-    return String(expression)
-        .replace(/,/g, ".")
-        .replace(/[×x]/g, "*")
-        .replace(/÷/g, "/")
-        .replace(/−/g, "-")
-        .replace(/\s+/g, "");
+  return String(expression)
+    .replace(/,/g, ".")
+    .replace(/[×x]/g, "*")
+    .replace(/÷/g, "/")
+    .replace(/−/g, "-")
+    .replace(/\s+/g, "");
 }
-
 
 function safeEvaluate(expression) {
-    try {
-        const result = math.evaluate(
-            normalizeExpression(expression)
-        );
-
-        if (
-            typeof result === "number" &&
-            Number.isFinite(result)
-        ) {
-            return result;
-        }
-
-        return null;
-    } catch {
-        return null;
-    }
-}
-
-
-function extractNumber(text, regex) {
-    const match = text.match(regex);
-
-    if (!match) return null;
-
-    const value = Number(
-        String(match[1]).replace(",", ".")
+  try {
+    const result = math.evaluate(
+      normalizeExpression(expression)
     );
 
-    return Number.isFinite(value) ? value : null;
+    if (
+      typeof result === "number" &&
+      Number.isFinite(result)
+    ) {
+      return result;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
 }
 
+function extractNumber(text, regex) {
+  const match = text.match(regex);
+
+  if (!match) return null;
+
+  const value = Number(
+    String(match[1]).replace(",", ".")
+  );
+
+  return Number.isFinite(value)
+    ? value
+    : null;
+}
 
 /* =========================================================
    MATHEMATICS
 ========================================================= */
 
 function splitEquation(problem) {
-    const match = problem.match(/(.+?)\s*=\s*(.+)/);
+  const match = problem.match(/(.+?)\s*=\s*(.+)/);
 
-    if (!match) return null;
+  if (!match) return null;
 
-    return {
-        left: match[1].trim(),
-        right: match[2].trim()
-    };
+  return {
+    left: match[1].trim(),
+    right: match[2].trim()
+  };
 }
-
 
 function solveLinear(a, b) {
-    if (Math.abs(a) < 1e-12) {
-
-        if (Math.abs(b) < 1e-12) {
-            return {
-                answer: "Infinitas soluções",
-                steps: [
-                    {
-                        title: "Analisar a equação",
-                        description:
-                            "A igualdade é verdadeira para qualquer valor de x."
-                    }
-                ],
-                methods: [],
-                learning: {
-                    concept: "Uma equação pode possuir infinitas soluções.",
-                    explanation:
-                        "Isso acontece quando os dois lados da equação são equivalentes.",
-                    tip:
-                        "Simplifica os dois lados antes de procurar x."
-                }
-            };
-        }
-
-        return {
-            answer: "Sem solução",
-            steps: [
-                {
-                    title: "Analisar a equação",
-                    description:
-                        "A equação resulta numa igualdade impossível."
-                }
-            ],
-            methods: [],
-            learning: {
-                concept: "Algumas equações não possuem solução.",
-                explanation:
-                    "Isso acontece quando a simplificação produz uma contradição.",
-                tip:
-                    "Verifica cuidadosamente os sinais e os termos constantes."
-            }
-        };
-    }
-
-    const x = -b / a;
-
-    return {
-        answer: `x = ${formatNumber(x)}`,
+  if (Math.abs(a) < 1e-12) {
+    if (Math.abs(b) < 1e-12) {
+      return {
+        answer: "Infinitas soluções",
 
         steps: [
-            {
-                title: "Identificar a equação",
-                description:
-                    `A equação foi reduzida à forma ax + b = 0.`,
-                formula:
-                    `${formatNumber(a)}x + ${formatNumber(b)} = 0`
-            },
-
-            {
-                title: "Isolar o termo com x",
-                description:
-                    `Passamos o termo constante para o outro lado.`,
-                formula:
-                    `${formatNumber(a)}x = ${formatNumber(-b)}`
-            },
-
-            {
-                title: "Dividir pelo coeficiente de x",
-                description:
-                    `Dividimos ambos os lados por ${formatNumber(a)}.`,
-                formula:
-                    `x = ${formatNumber(-b)} / ${formatNumber(a)}`
-            },
-
-            {
-                title: "Resultado",
-                description:
-                    "A solução da equação é:",
-                formula:
-                    `x = ${formatNumber(x)}`
-            }
+          {
+            title: "Analisar a equação",
+            description:
+              "A igualdade é verdadeira para qualquer valor de x."
+          }
         ],
 
         methods: [
-            {
-                name: "Isolamento algébrico",
-                description:
-                    "Isolar x através de operações equivalentes nos dois lados.",
-                result:
-                    `x = ${formatNumber(x)}`
-            }
+          {
+            name: "Análise algébrica",
+            description:
+              "Os dois lados da equação são equivalentes.",
+            result: "Infinitas soluções"
+          }
         ],
 
         learning: {
-            concept:
-                "Uma equação linear possui a variável no primeiro grau.",
-            explanation:
-                "O objetivo é deixar a variável x sozinha num dos lados da igualdade.",
-            tip:
-                "Para ax + b = 0, usa x = -b/a quando a ≠ 0."
+          concept:
+            "Uma equação pode possuir infinitas soluções quando os dois lados são equivalentes.",
+          explanation:
+            "Depois de simplificar a equação, não resta nenhuma condição sobre x.",
+          tip:
+            "Simplifica os dois lados antes de procurar o valor de x."
         }
-    };
-}
+      };
+    }
 
+    return {
+      answer: "Sem solução",
+
+      steps: [
+        {
+          title: "Analisar a equação",
+          description:
+            "A equação resulta numa igualdade impossível."
+        }
+      ],
+
+      methods: [
+        {
+          name: "Análise algébrica",
+          description:
+            "A igualdade não pode ser satisfeita.",
+          result: "Sem solução"
+        }
+      ],
+
+      learning: {
+        concept:
+          "Uma equação sem solução é uma igualdade impossível.",
+        explanation:
+          "Depois da simplificação, obtém-se uma afirmação falsa.",
+        tip:
+          "Verifica se os termos constantes foram transpostos corretamente."
+      }
+    };
+  }
+
+  const x = -b / a;
+
+  return {
+    answer: `x = ${formatNumber(x)}`,
+
+    steps: [
+      {
+        title: "Identificar a equação",
+        description:
+          `Temos uma equação linear: ${formatNumber(a)}x + ${formatNumber(b)} = 0.`,
+        formula:
+          `${formatNumber(a)}x + ${formatNumber(b)} = 0`
+      },
+
+      {
+        title: "Isolar o termo com x",
+        description:
+          `Passamos ${formatNumber(b)} para o outro lado.`,
+        formula:
+          `${formatNumber(a)}x = ${formatNumber(-b)}`
+      },
+
+      {
+        title: "Dividir pelo coeficiente de x",
+        description:
+          `Dividimos os dois lados por ${formatNumber(a)}.`,
+        formula:
+          `x = ${formatNumber(-b)} / ${formatNumber(a)}`
+      },
+
+      {
+        title: "Resultado",
+        description:
+          "O valor de x é:",
+        formula:
+          `x = ${formatNumber(x)}`
+      }
+    ],
+
+    methods: [
+      {
+        name: "Isolamento algébrico",
+        description:
+          "Isolamos x através de operações equivalentes.",
+        result:
+          `x = ${formatNumber(x)}`
+      }
+    ],
+
+    learning: {
+      concept:
+        "Uma equação linear possui a variável no primeiro grau.",
+      explanation:
+        "O objetivo é deixar x sozinho num dos lados da igualdade.",
+      tip:
+        "Em ax + b = 0, podes usar x = -b/a quando a ≠ 0."
+    }
+  };
+}
 
 function solveQuadratic(a, b, c) {
+  if (Math.abs(a) < 1e-12) {
+    return solveLinear(b, c);
+  }
 
-    if (Math.abs(a) < 1e-12) {
-        return solveLinear(b, c);
-    }
+  const discriminant = b * b - 4 * a * c;
 
-    const delta = b * b - 4 * a * c;
+  if (discriminant < 0) {
+    const realPart = -b / (2 * a);
 
-    if (delta < 0) {
-
-        const realPart = -b / (2 * a);
-
-        const imaginaryPart =
-            Math.sqrt(-delta) / Math.abs(2 * a);
-
-        return {
-            answer:
-                `x = ${formatNumber(realPart)} ± ${formatNumber(imaginaryPart)}i`,
-
-            steps: [
-                {
-                    title: "Identificar a equação",
-                    description:
-                        "A equação está na forma ax² + bx + c = 0.",
-                    formula:
-                        `${formatNumber(a)}x² + ${formatNumber(b)}x + ${formatNumber(c)} = 0`
-                },
-
-                {
-                    title: "Calcular o discriminante",
-                    description:
-                        "Usamos Δ = b² − 4ac.",
-                    formula:
-                        `Δ = ${formatNumber(delta)}`
-                },
-
-                {
-                    title: "Interpretar o discriminante",
-                    description:
-                        "Como Δ < 0, não existem raízes reais."
-                },
-
-                {
-                    title: "Resultado",
-                    description:
-                        "As raízes complexas são:",
-                    formula:
-                        `x = ${formatNumber(realPart)} ± ${formatNumber(imaginaryPart)}i`
-                }
-            ],
-
-            methods: [
-                {
-                    name: "Fórmula quadrática",
-                    description:
-                        "A fórmula de Bhaskara também pode ser usada para raízes complexas.",
-                    result:
-                        `x = ${formatNumber(realPart)} ± ${formatNumber(imaginaryPart)}i`
-                }
-            ],
-
-            learning: {
-                concept:
-                    "O discriminante determina a natureza das raízes de uma equação quadrática.",
-                explanation:
-                    "Quando Δ < 0, a equação não possui soluções reais.",
-                tip:
-                    "Δ > 0: duas raízes reais; Δ = 0: uma raiz dupla; Δ < 0: raízes complexas."
-            }
-        };
-    }
-
-    const sqrtDelta = Math.sqrt(delta);
-
-    const x1 =
-        (-b + sqrtDelta) / (2 * a);
-
-    const x2 =
-        (-b - sqrtDelta) / (2 * a);
-
-    const equal =
-        Math.abs(x1 - x2) < 1e-10;
+    const imaginaryPart =
+      Math.sqrt(-discriminant) /
+      Math.abs(2 * a);
 
     return {
-        answer: equal
+      answer:
+        `x = ${formatNumber(realPart)} ± ${formatNumber(imaginaryPart)}i`,
+
+      steps: [
+        {
+          title: "Identificar a equação",
+          description:
+            `A equação é ${formatNumber(a)}x² + ${formatNumber(b)}x + ${formatNumber(c)} = 0.`,
+          formula:
+            `${formatNumber(a)}x² + ${formatNumber(b)}x + ${formatNumber(c)} = 0`
+        },
+
+        {
+          title: "Calcular o discriminante",
+          description:
+            "Usamos Δ = b² − 4ac.",
+          formula:
+            `Δ = ${formatNumber(discriminant)}`
+        },
+
+        {
+          title: "Interpretar o discriminante",
+          description:
+            "Como Δ < 0, não existem raízes reais."
+        },
+
+        {
+          title: "Resultado",
+          description:
+            "As raízes são complexas.",
+          formula:
+            `x = ${formatNumber(realPart)} ± ${formatNumber(imaginaryPart)}i`
+        }
+      ],
+
+      methods: [
+        {
+          name: "Fórmula quadrática",
+          description:
+            "Usamos a fórmula de Bhaskara no conjunto dos números complexos.",
+          result:
+            `x = ${formatNumber(realPart)} ± ${formatNumber(imaginaryPart)}i`
+        }
+      ],
+
+      learning: {
+        concept:
+          "O discriminante determina a natureza das raízes de uma equação quadrática.",
+        explanation:
+          "Quando Δ < 0, a equação não possui soluções reais.",
+        tip:
+          "Δ > 0: duas raízes reais; Δ = 0: uma raiz real dupla; Δ < 0: raízes complexas."
+      }
+    };
+  }
+
+  const sqrtD = Math.sqrt(discriminant);
+
+  const x1 =
+    (-b + sqrtD) /
+    (2 * a);
+
+  const x2 =
+    (-b - sqrtD) /
+    (2 * a);
+
+  const equal =
+    Math.abs(x1 - x2) < 1e-10;
+
+  return {
+    answer:
+      equal
+        ? `x = ${formatNumber(x1)}`
+        : `x₁ = ${formatNumber(x1)}, x₂ = ${formatNumber(x2)}`,
+
+    steps: [
+      {
+        title: "Identificar a equação",
+        description:
+          "A equação está na forma ax² + bx + c = 0.",
+        formula:
+          `${formatNumber(a)}x² + ${formatNumber(b)}x + ${formatNumber(c)} = 0`
+      },
+
+      {
+        title: "Calcular o discriminante",
+        description:
+          "Usamos Δ = b² − 4ac.",
+        formula:
+          `Δ = ${formatNumber(discriminant)}`
+      },
+
+      {
+        title: "Calcular √Δ",
+        description:
+          "Como o discriminante é não negativo, calculamos a sua raiz quadrada.",
+        formula:
+          `√Δ = ${formatNumber(sqrtD)}`
+      },
+
+      {
+        title: "Aplicar a fórmula quadrática",
+        description:
+          "Substituímos os valores na fórmula.",
+        formula:
+          `x = (-b ± √Δ) / 2a`
+      },
+
+      {
+        title: "Resultado",
+        description:
+          equal
+            ? "As duas raízes são iguais."
+            : "Existem duas raízes reais.",
+        formula:
+          equal
             ? `x = ${formatNumber(x1)}`
-            : `x₁ = ${formatNumber(x1)}, x₂ = ${formatNumber(x2)}`,
+            : `x₁ = ${formatNumber(x1)} ; x₂ = ${formatNumber(x2)}`
+      }
+    ],
+
+    methods: [
+      {
+        name: "Fórmula quadrática",
+        description:
+          "Método geral para resolver equações do segundo grau.",
+        result:
+          equal
+            ? `x = ${formatNumber(x1)}`
+            : `x₁ = ${formatNumber(x1)}, x₂ = ${formatNumber(x2)}`
+      }
+    ],
+
+    graph: createQuadraticGraph(a, b, c),
+
+    learning: {
+      concept:
+        "Uma equação quadrática é uma equação de segundo grau.",
+      explanation:
+        "O discriminante ajuda a determinar a quantidade e o tipo das raízes.",
+      tip:
+        "Organiza sempre a equação na forma ax² + bx + c = 0."
+    }
+  };
+}
+
+function parsePolynomial(expression) {
+  try {
+    const normalized =
+      normalizeExpression(expression);
+
+    const node = math.parse(normalized);
+
+    const compiled = node.compile();
+
+    const values = [];
+
+    [-2, -1, 0, 1, 2].forEach(x => {
+      try {
+        const y =
+          Number(
+            compiled.evaluate({ x })
+          );
+
+        values.push({ x, y });
+      } catch {
+        values.push({ x, y: NaN });
+      }
+    });
+
+    if (
+      values.some(
+        item => !Number.isFinite(item.y)
+      )
+    ) {
+      return null;
+    }
+
+    const c =
+      values.find(
+        item => item.x === 0
+      ).y;
+
+    const y1 =
+      values.find(
+        item => item.x === 1
+      ).y;
+
+    const ym1 =
+      values.find(
+        item => item.x === -1
+      ).y;
+
+    const y2 =
+      values.find(
+        item => item.x === 2
+      ).y;
+
+    const ym2 =
+      values.find(
+        item => item.x === -2
+      ).y;
+
+    const b =
+      (y1 - ym1) / 2;
+
+    const a =
+      (y2 + ym2 - 2 * c) / 8;
+
+    if (
+      !Number.isFinite(a) ||
+      !Number.isFinite(b) ||
+      !Number.isFinite(c)
+    ) {
+      return null;
+    }
+
+    return {
+      a: round(a),
+      b: round(b),
+      c: round(c)
+    };
+
+  } catch {
+    return null;
+  }
+}
+
+function createQuadraticGraph(a, b, c) {
+  const points = [];
+
+  const vertex =
+    -b / (2 * a);
+
+  const start =
+    Math.floor(vertex - 8);
+
+  const end =
+    Math.ceil(vertex + 8);
+
+  for (
+    let x = start;
+    x <= end;
+    x += 0.25
+  ) {
+    points.push({
+      x: round(x, 3),
+
+      y: round(
+        a * x * x +
+        b * x +
+        c,
+        3
+      )
+    });
+  }
+
+  return {
+    type: "quadratic",
+    points
+  };
+}
+
+function createLinearGraph(a, b) {
+  const points = [];
+
+  for (
+    let x = -10;
+    x <= 10;
+    x += 0.5
+  ) {
+    points.push({
+      x,
+      y: round(a * x + b, 4)
+    });
+  }
+
+  return {
+    type: "linear",
+    points
+  };
+}
+
+function solveMath(problem) {
+  const equation =
+    splitEquation(problem);
+
+  if (equation) {
+    const left =
+      normalizeExpression(
+        equation.left
+      );
+
+    const right =
+      normalizeExpression(
+        equation.right
+      );
+
+    const expression =
+      `${left}-(${right})`;
+
+    const polynomial =
+      parsePolynomial(expression);
+
+    if (polynomial) {
+      const { a, b, c } = polynomial;
+
+      if (Math.abs(a) > 1e-10) {
+        return solveQuadratic(
+          a,
+          b,
+          c
+        );
+      }
+
+      if (Math.abs(b) > 1e-10) {
+        const result =
+          solveLinear(b, c);
+
+        result.graph =
+          createLinearGraph(
+            b,
+            c
+          );
+
+        return result;
+      }
+
+      return {
+        answer:
+          Math.abs(c) < 1e-10
+            ? "Todos os valores de x são soluções."
+            : "Sem solução",
 
         steps: [
-            {
-                title: "Identificar a equação",
-                description:
-                    "A equação está na forma ax² + bx + c = 0.",
-                formula:
-                    `${formatNumber(a)}x² + ${formatNumber(b)}x + ${formatNumber(c)} = 0`
-            },
+          {
+            title: "Simplificar a equação",
+            description:
+              `A expressão reduz-se a ${formatNumber(c)} = 0.`
+          }
+        ]
+      };
+    }
+  }
 
-            {
-                title: "Calcular o discriminante",
-                description:
-                    "Usamos Δ = b² − 4ac.",
-                formula:
-                    `Δ = (${formatNumber(b)})² − 4(${formatNumber(a)})(${formatNumber(c)}) = ${formatNumber(delta)}`
-            },
+  const expressionMatch =
+    problem.match(
+      /(?:calcule|calculate|quanto é|quanto e|resolva|resolve)?\s*([\d.,+\-*/^×÷() ]+)/i
+    );
 
-            {
-                title: "Calcular √Δ",
-                description:
-                    "Calculamos a raiz quadrada do discriminante.",
-                formula:
-                    `√Δ = ${formatNumber(sqrtDelta)}`
-            },
+  if (expressionMatch) {
+    const expression =
+      expressionMatch[1].trim();
 
-            {
-                title: "Aplicar a fórmula de Bhaskara",
-                description:
-                    "Substituímos os valores na fórmula.",
-                formula:
-                    `x = (-b ± √Δ) / 2a`
-            },
+    const result =
+      safeEvaluate(expression);
 
-            {
-                title: "Resultado",
-                description:
-                    equal
-                        ? "As duas raízes são iguais."
-                        : "As duas soluções são:",
-                formula:
-                    equal
-                        ? `x = ${formatNumber(x1)}`
-                        : `x₁ = ${formatNumber(x1)} ; x₂ = ${formatNumber(x2)}`
-            }
+    if (result !== null) {
+      return {
+        answer:
+          formatNumber(result),
+
+        steps: [
+          {
+            title: "Identificar a expressão",
+            description:
+              `A expressão é ${expression}.`
+          },
+
+          {
+            title: "Efetuar os cálculos",
+            description:
+              "Aplicamos a ordem correta das operações.",
+            formula:
+              expression
+          },
+
+          {
+            title: "Resultado",
+            description:
+              "O resultado final é:",
+            formula:
+              formatNumber(result)
+          }
         ],
 
         methods: [
-            {
-                name: "Fórmula de Bhaskara",
-                description:
-                    "Método geral para resolver equações quadráticas.",
-                result:
-                    equal
-                        ? `x = ${formatNumber(x1)}`
-                        : `x₁ = ${formatNumber(x1)}, x₂ = ${formatNumber(x2)}`
-            }
+          {
+            name: "Ordem das operações",
+            description:
+              "Parênteses, potências, multiplicações/divisões e depois adições/subtrações.",
+            result:
+              formatNumber(result)
+          }
         ],
 
         learning: {
-            concept:
-                "Uma equação quadrática possui a forma ax² + bx + c = 0, com a ≠ 0.",
-            explanation:
-                "O discriminante informa primeiro o tipo de raízes. Depois usamos a fórmula de Bhaskara.",
-            tip:
-                "Organiza sempre a equação antes de aplicar a fórmula."
+          concept:
+            "A ordem das operações define a sequência correta de cálculo.",
+          explanation:
+            "Operações com maior prioridade devem ser realizadas primeiro.",
+          tip:
+            "Usa parênteses para tornar a ordem do cálculo clara."
         }
-    };
-}
-
-
-function solveMath(problem) {
-
-    const equation = splitEquation(problem);
-
-    /* EQUAÇÕES */
-
-    if (equation) {
-
-        try {
-
-            const left =
-                normalizeExpression(equation.left);
-
-            const right =
-                normalizeExpression(equation.right);
-
-            const expression =
-                `${left}-(${right})`;
-
-            const node =
-                math.parse(expression);
-
-            const fn =
-                node.compile();
-
-            const values = {};
-
-            for (const x of [-2, -1, 0, 1, 2]) {
-                values[x] = Number(
-                    fn.evaluate({ x })
-                );
-            }
-
-            if (
-                Object.values(values)
-                    .every(Number.isFinite)
-            ) {
-
-                const c = values[0];
-
-                const b =
-                    (values[1] - values[-1]) / 2;
-
-                const a =
-                    (
-                        values[2] +
-                        values[-2] -
-                        2 * c
-                    ) / 8;
-
-                if (
-                    Number.isFinite(a) &&
-                    Number.isFinite(b) &&
-                    Number.isFinite(c)
-                ) {
-
-                    if (Math.abs(a) > 1e-10) {
-                        return solveQuadratic(
-                            round(a, 10),
-                            round(b, 10),
-                            round(c, 10)
-                        );
-                    }
-
-                    if (Math.abs(b) > 1e-10) {
-                        return solveLinear(
-                            round(b, 10),
-                            round(c, 10)
-                        );
-                    }
-                }
-            }
-
-        } catch {
-            /* Continua para cálculo normal */
-        }
+      };
     }
+  }
 
-
-    /* EXPRESSÃO NUMÉRICA */
-
-    const expressionMatch =
-        problem.match(
-            /(?:calcule|calculate|quanto\s*[ée]|resolva|resolve)?\s*([\d.,+\-*/^×÷() ]+)$/i
-        );
-
-    if (expressionMatch) {
-
-        const expression =
-            expressionMatch[1].trim();
-
-        const result =
-            safeEvaluate(expression);
-
-        if (result !== null) {
-
-            return {
-                answer: formatNumber(result),
-
-                steps: [
-                    {
-                        title: "Identificar a expressão",
-                        description:
-                            `A expressão é ${expression}.`
-                    },
-
-                    {
-                        title: "Aplicar a ordem das operações",
-                        description:
-                            "Resolvemos a expressão respeitando a ordem matemática."
-                    },
-
-                    {
-                        title: "Resultado",
-                        description:
-                            "O resultado final é:",
-                        formula:
-                            formatNumber(result)
-                    }
-                ],
-
-                methods: [
-                    {
-                        name: "Ordem das operações",
-                        description:
-                            "Parênteses, potências, multiplicações/divisões e adições/subtrações.",
-                        result:
-                            formatNumber(result)
-                    }
-                ],
-
-                learning: {
-                    concept:
-                        "A ordem das operações determina a sequência correta dos cálculos.",
-                    explanation:
-                        "As operações devem ser executadas seguindo uma prioridade matemática.",
-                    tip:
-                        "Usa parênteses para deixar a ordem desejada explícita."
-                }
-            };
-        }
-    }
-
-    return null;
+  return null;
 }
-
 
 /* =========================================================
    PHYSICS
 ========================================================= */
 
 function solvePhysics(problem) {
+  const text =
+    problem
+      .toLowerCase()
+      .replace(/,/g, ".");
 
-    const text =
-        problem
-            .toLowerCase()
-            .replace(/,/g, ".")
-            .replace(/²/g, "2");
+  /* VELOCIDADE */
 
+  if (
+    text.includes("velocidade") &&
+    (
+      text.includes("distância") ||
+      text.includes("distancia") ||
+      text.includes("percorre") ||
+      text.includes("percorreu")
+    ) &&
+    (
+      text.includes("tempo") ||
+      text.includes("hora") ||
+      text.includes("segundo")
+    )
+  ) {
+    const distanceMatch =
+      text.match(
+        /(\d+(?:\.\d+)?)\s*(km|m)\b/
+      );
 
-    /* VELOCIDADE */
+    const timeMatch =
+      text.match(
+        /(\d+(?:\.\d+)?)\s*(h|hora|horas|min|minuto|minutos|s|segundo|segundos)\b/
+      );
 
-    if (
-        text.includes("velocidade") &&
+    if (distanceMatch && timeMatch) {
+      const distance =
+        Number(distanceMatch[1]);
+
+      const distanceUnit =
+        distanceMatch[2];
+
+      const time =
+        Number(timeMatch[1]);
+
+      const timeUnit =
+        timeMatch[2];
+
+      const distanceMeters =
+        distanceUnit === "km"
+          ? distance * 1000
+          : distance;
+
+      let timeSeconds;
+
+      if (
+        timeUnit === "h" ||
+        timeUnit === "hora" ||
+        timeUnit === "horas"
+      ) {
+        timeSeconds =
+          time * 3600;
+      } else if (
+        timeUnit === "min" ||
+        timeUnit === "minuto" ||
+        timeUnit === "minutos"
+      ) {
+        timeSeconds =
+          time * 60;
+      } else {
+        timeSeconds =
+          time;
+      }
+
+      const velocitySI =
+        distanceMeters /
+        timeSeconds;
+
+      const answer =
+        distanceUnit === "km" &&
         (
-            text.includes("distância") ||
-            text.includes("distancia") ||
-            text.includes("percorre") ||
-            text.includes("percorreu")
-        ) &&
-        text.includes("tempo")
-    ) {
-
-        const distanceMatch =
-            text.match(
-                /(\d+(?:\.\d+)?)\s*(km|m)\b/
-            );
-
-        const timeMatch =
-            text.match(
-                /(\d+(?:\.\d+)?)\s*(h|hora|horas|min|minuto|minutos|s|segundo|segundos)\b/
-            );
-
-        if (distanceMatch && timeMatch) {
-
-            const distance =
-                Number(distanceMatch[1]);
-
-            const distanceUnit =
-                distanceMatch[2];
-
-            const time =
-                Number(timeMatch[1]);
-
-            const timeUnit =
-                timeMatch[2];
-
-            const meters =
-                distanceUnit === "km"
-                    ? distance * 1000
-                    : distance;
-
-            let seconds;
-
-            if (
-                timeUnit === "h" ||
-                timeUnit === "hora" ||
-                timeUnit === "horas"
-            ) {
-                seconds = time * 3600;
-            } else if (
-                timeUnit === "min" ||
-                timeUnit === "minuto" ||
-                timeUnit === "minutos"
-            ) {
-                seconds = time * 60;
-            } else {
-                seconds = time;
-            }
-
-            const velocity =
-                meters / seconds;
-
-            const kmh =
-                velocity * 3.6;
-
-            return {
-                answer:
-                    `${formatNumber(velocity)} m/s (${formatNumber(kmh)} km/h)`,
-
-                steps: [
-                    {
-                        title: "Identificar os dados",
-                        description:
-                            `Distância = ${distance} ${distanceUnit}; tempo = ${time} ${timeUnit}.`
-                    },
-
-                    {
-                        title: "Usar a fórmula",
-                        description:
-                            "A velocidade média é distância dividida pelo tempo.",
-                        formula:
-                            "v = d / t"
-                    },
-
-                    {
-                        title: "Converter para o SI",
-                        description:
-                            `Distância = ${formatNumber(meters)} m; tempo = ${formatNumber(seconds)} s.`
-                    },
-
-                    {
-                        title: "Resultado",
-                        description:
-                            "A velocidade média é:",
-                        formula:
-                            `${formatNumber(velocity)} m/s = ${formatNumber(kmh)} km/h`
-                    }
-                ],
-
-                methods: [
-                    {
-                        name: "Velocidade média",
-                        description:
-                            "Divide a distância pelo intervalo de tempo.",
-                        result:
-                            `${formatNumber(velocity)} m/s`
-                    }
-                ],
-
-                learning: {
-                    concept:
-                        "Velocidade média é a razão entre distância e tempo.",
-                    explanation:
-                        "Ela indica quanto espaço é percorrido por unidade de tempo.",
-                    tip:
-                        "Confirma sempre as unidades antes de fazer a divisão."
-                }
-            };
-        }
-    }
-
-
-    /* FORÇA */
-
-    if (
-        text.includes("força") &&
-        text.includes("massa") &&
-        (
-            text.includes("aceleração") ||
-            text.includes("aceleracao")
+          timeUnit === "h" ||
+          timeUnit === "hora" ||
+          timeUnit === "horas"
         )
-    ) {
+          ? `${formatNumber(distance / time)} km/h (${formatNumber(velocitySI)} m/s)`
+          : `${formatNumber(velocitySI)} m/s`;
 
-        const mass =
-            extractNumber(
-                text,
-                /(\d+(?:\.\d+)?)\s*kg/
-            );
+      return {
+        answer,
 
-        const acceleration =
-            extractNumber(
-                text,
-                /(\d+(?:\.\d+)?)\s*m\/s(?:2|\^2)/
-            );
+        steps: [
+          {
+            title: "Identificar os dados",
+            description:
+              `Distância = ${distance} ${distanceUnit}; tempo = ${time} ${timeUnit}.`
+          },
 
-        if (
-            mass !== null &&
-            acceleration !== null
-        ) {
+          {
+            title: "Usar a fórmula",
+            description:
+              "A velocidade média é a distância dividida pelo tempo.",
+            formula:
+              "v = d / t"
+          },
 
-            const force =
-                mass * acceleration;
+          {
+            title: "Substituir",
+            description:
+              "Colocamos os valores na fórmula.",
+            formula:
+              `v = ${distanceMeters} / ${timeSeconds}`
+          },
 
-            return {
-                answer:
-                    `${formatNumber(force)} N`,
+          {
+            title: "Resultado",
+            description:
+              "A velocidade média é:",
+            formula:
+              answer
+          }
+        ],
 
-                steps: [
-                    {
-                        title: "Identificar os dados",
-                        description:
-                            `m = ${mass} kg e a = ${acceleration} m/s².`
-                    },
+        methods: [
+          {
+            name: "Velocidade média",
+            description:
+              "Divide a distância pelo intervalo de tempo.",
+            result:
+              answer
+          }
+        ],
 
-                    {
-                        title: "Usar a segunda lei de Newton",
-                        description:
-                            "A força é o produto da massa pela aceleração.",
-                        formula:
-                            "F = m × a"
-                    },
-
-                    {
-                        title: "Substituir",
-                        formula:
-                            `F = ${mass} × ${acceleration}`
-                    },
-
-                    {
-                        title: "Resultado",
-                        formula:
-                            `F = ${formatNumber(force)} N`
-                    }
-                ],
-
-                methods: [
-                    {
-                        name: "Segunda lei de Newton",
-                        description:
-                            "Relaciona força, massa e aceleração.",
-                        result:
-                            `${formatNumber(force)} N`
-                    }
-                ],
-
-                learning: {
-                    concept:
-                        "A segunda lei de Newton é F = ma.",
-                    explanation:
-                        "A força resultante depende da massa e da aceleração.",
-                    tip:
-                        "A unidade da força no SI é o newton (N)."
-                }
-            };
+        learning: {
+          concept:
+            "Velocidade média é a razão entre distância percorrida e tempo.",
+          explanation:
+            "Ela indica quanto espaço é percorrido por unidade de tempo.",
+          tip:
+            "Confirma sempre as unidades usadas."
         }
+      };
     }
+  }
 
+  /* FORÇA */
 
-    /* DENSIDADE */
+  if (
+    text.includes("força") &&
+    text.includes("massa") &&
+    (
+      text.includes("aceleração") ||
+      text.includes("aceleracao")
+    )
+  ) {
+    const mass =
+      extractNumber(
+        text,
+        /(\d+(?:\.\d+)?)\s*kg/
+      );
+
+    const acceleration =
+      extractNumber(
+        text,
+        /(\d+(?:\.\d+)?)\s*m\/s(?:²|\^2|2)/
+      );
 
     if (
-        text.includes("densidade")
+      mass !== null &&
+      acceleration !== null
     ) {
+      const force =
+        mass * acceleration;
 
-        const massMatch =
-            text.match(
-                /(\d+(?:\.\d+)?)\s*(kg|g)\b/
-            );
+      return {
+        answer:
+          `${formatNumber(force)} N`,
 
-        const volumeMatch =
-            text.match(
-                /(\d+(?:\.\d+)?)\s*(m3|m³|l|litro|litros)\b/
-            );
+        steps: [
+          {
+            title: "Identificar os dados",
+            description:
+              `Massa = ${mass} kg; aceleração = ${acceleration} m/s².`
+          },
 
-        if (massMatch && volumeMatch) {
+          {
+            title: "Usar a segunda lei de Newton",
+            description:
+              "F = m × a",
+            formula:
+              "F = m × a"
+          },
 
-            const mass =
-                Number(massMatch[1]);
+          {
+            title: "Substituir",
+            description:
+              "Colocamos os valores.",
+            formula:
+              `F = ${mass} × ${acceleration}`
+          },
 
-            const massUnit =
-                massMatch[2];
+          {
+            title: "Resultado",
+            description:
+              "A força resultante é:",
+            formula:
+              `F = ${formatNumber(force)} N`
+          }
+        ],
 
-            const volume =
-                Number(volumeMatch[1]);
+        methods: [
+          {
+            name: "Segunda lei de Newton",
+            description:
+              "Relaciona força, massa e aceleração.",
+            result:
+              `${formatNumber(force)} N`
+          }
+        ],
 
-            const volumeUnit =
-                volumeMatch[2];
-
-            const massKg =
-                massUnit === "g"
-                    ? mass / 1000
-                    : mass;
-
-            const volumeM3 =
-                (
-                    volumeUnit === "l" ||
-                    volumeUnit === "litro" ||
-                    volumeUnit === "litros"
-                )
-                    ? volume / 1000
-                    : volume;
-
-            const density =
-                massKg / volumeM3;
-
-            return {
-                answer:
-                    `${formatNumber(density)} kg/m³`,
-
-                steps: [
-                    {
-                        title: "Identificar os dados",
-                        description:
-                            `Massa = ${mass} ${massUnit}; volume = ${volume} ${volumeUnit}.`
-                    },
-
-                    {
-                        title: "Usar a fórmula",
-                        formula:
-                            "ρ = m / V"
-                    },
-
-                    {
-                        title: "Converter para o SI",
-                        description:
-                            `m = ${formatNumber(massKg)} kg; V = ${formatNumber(volumeM3)} m³.`
-                    },
-
-                    {
-                        title: "Resultado",
-                        formula:
-                            `ρ = ${formatNumber(density)} kg/m³`
-                    }
-                ],
-
-                methods: [
-                    {
-                        name: "Densidade",
-                        description:
-                            "Relaciona massa e volume.",
-                        result:
-                            `${formatNumber(density)} kg/m³`
-                    }
-                ],
-
-                learning: {
-                    concept:
-                        "Densidade é massa por unidade de volume.",
-                    explanation:
-                        "Calculamos dividindo a massa pelo volume.",
-                    tip:
-                        "No SI, usa kg/m³."
-                }
-            };
+        learning: {
+          concept:
+            "A segunda lei de Newton é F = ma.",
+          explanation:
+            "A força resultante depende da massa e da aceleração.",
+          tip:
+            "A força no SI é medida em newtons (N)."
         }
+      };
     }
+  }
 
+  /* DENSIDADE */
 
-    /* LEI DE OHM */
+  if (
+    text.includes("densidade") &&
+    (
+      text.includes("massa") ||
+      text.includes("kg")
+    ) &&
+    (
+      text.includes("volume") ||
+      text.includes("litro") ||
+      text.includes("m³") ||
+      text.includes("m3")
+    )
+  ) {
+    const massMatch =
+      text.match(
+        /(\d+(?:\.\d+)?)\s*(kg|g)\b/
+      );
 
-    if (
-        text.includes("resistência") &&
+    const volumeMatch =
+      text.match(
+        /(\d+(?:\.\d+)?)\s*(m3|m³|l|litro|litros)\b/
+      );
+
+    if (massMatch && volumeMatch) {
+      const mass =
+        Number(massMatch[1]);
+
+      const massUnit =
+        massMatch[2];
+
+      const volume =
+        Number(volumeMatch[1]);
+
+      const volumeUnit =
+        volumeMatch[2];
+
+      const massKg =
+        massUnit === "g"
+          ? mass / 1000
+          : mass;
+
+      const volumeM3 =
         (
-            text.includes("tensão") ||
-            text.includes("voltagem")
-        ) &&
-        text.includes("corrente")
-    ) {
+          volumeUnit === "l" ||
+          volumeUnit === "litro" ||
+          volumeUnit === "litros"
+        )
+          ? volume / 1000
+          : volume;
 
-        const voltage =
-            extractNumber(
-                text,
-                /(\d+(?:\.\d+)?)\s*v\b/
-            );
+      if (volumeM3 === 0) {
+        return null;
+      }
 
-        const current =
-            extractNumber(
-                text,
-                /(\d+(?:\.\d+)?)\s*a\b/
-            );
+      const density =
+        massKg / volumeM3;
 
-        if (
-            voltage !== null &&
-            current !== null &&
-            current !== 0
-        ) {
+      return {
+        answer:
+          `${formatNumber(density)} kg/m³`,
 
-            const resistance =
-                voltage / current;
+        steps: [
+          {
+            title: "Identificar os dados",
+            description:
+              `Massa = ${mass} ${massUnit}; volume = ${volume} ${volumeUnit}.`
+          },
 
-            return {
-                answer:
-                    `${formatNumber(resistance)} Ω`,
+          {
+            title: "Usar a fórmula",
+            description:
+              "A densidade é massa dividida pelo volume.",
+            formula:
+              "ρ = m / V"
+          },
 
-                steps: [
-                    {
-                        title: "Identificar os dados",
-                        description:
-                            `V = ${voltage} V; I = ${current} A.`
-                    },
+          {
+            title: "Converter para SI",
+            description:
+              `Massa = ${formatNumber(massKg)} kg; volume = ${formatNumber(volumeM3)} m³.`
+          },
 
-                    {
-                        title: "Usar a lei de Ohm",
-                        formula:
-                            "R = V / I"
-                    },
+          {
+            title: "Resultado",
+            description:
+              "A densidade é:",
+            formula:
+              `ρ = ${formatNumber(density)} kg/m³`
+          }
+        ],
 
-                    {
-                        title: "Substituir",
-                        formula:
-                            `R = ${voltage} / ${current}`
-                    },
+        methods: [
+          {
+            name: "Densidade",
+            description:
+              "Relaciona massa e volume.",
+            result:
+              `${formatNumber(density)} kg/m³`
+          }
+        ],
 
-                    {
-                        title: "Resultado",
-                        formula:
-                            `R = ${formatNumber(resistance)} Ω`
-                    }
-                ],
-
-                methods: [
-                    {
-                        name: "Lei de Ohm",
-                        description:
-                            "Relaciona tensão, corrente e resistência.",
-                        result:
-                            `${formatNumber(resistance)} Ω`
-                    }
-                ],
-
-                learning: {
-                    concept:
-                        "A lei de Ohm é V = RI.",
-                    explanation:
-                        "A resistência pode ser encontrada dividindo tensão pela corrente.",
-                    tip:
-                        "Usa volts e ampères para obter ohms."
-                }
-            };
+        learning: {
+          concept:
+            "Densidade é a massa por unidade de volume.",
+          explanation:
+            "Divide-se a massa pelo volume.",
+          tip:
+            "No SI, a unidade é kg/m³."
         }
+      };
     }
+  }
 
+  /* LEI DE OHM */
 
-    /* POTÊNCIA */
+  if (
+    text.includes("resistência") &&
+    (
+      text.includes("tensão") ||
+      text.includes("voltagem") ||
+      text.includes("volts")
+    ) &&
+    (
+      text.includes("corrente") ||
+      text.includes("ampere") ||
+      text.includes("ampères")
+    )
+  ) {
+    const voltage =
+      extractNumber(
+        text,
+        /(\d+(?:\.\d+)?)\s*v\b/
+      );
+
+    const current =
+      extractNumber(
+        text,
+        /(\d+(?:\.\d+)?)\s*a\b/
+      );
 
     if (
-        text.includes("potência")
+      voltage !== null &&
+      current !== null &&
+      current !== 0
     ) {
+      const resistance =
+        voltage / current;
 
-        const voltage =
-            extractNumber(
-                text,
-                /(\d+(?:\.\d+)?)\s*v\b/
-            );
+      return {
+        answer:
+          `${formatNumber(resistance)} Ω`,
 
-        const current =
-            extractNumber(
-                text,
-                /(\d+(?:\.\d+)?)\s*a\b/
-            );
+        steps: [
+          {
+            title: "Identificar os dados",
+            description:
+              `Tensão = ${voltage} V; corrente = ${current} A.`
+          },
 
-        if (
-            voltage !== null &&
-            current !== null
-        ) {
+          {
+            title: "Usar a lei de Ohm",
+            description:
+              "A resistência é tensão dividida pela corrente.",
+            formula:
+              "R = V / I"
+          },
 
-            const power =
-                voltage * current;
+          {
+            title: "Substituir",
+            description:
+              "Aplicamos os valores.",
+            formula:
+              `R = ${voltage} / ${current}`
+          },
 
-            return {
-                answer:
-                    `${formatNumber(power)} W`,
+          {
+            title: "Resultado",
+            description:
+              "A resistência é:",
+            formula:
+              `R = ${formatNumber(resistance)} Ω`
+          }
+        ],
 
-                steps: [
-                    {
-                        title: "Identificar os dados",
-                        description:
-                            `V = ${voltage} V; I = ${current} A.`
-                    },
+        methods: [
+          {
+            name: "Lei de Ohm",
+            description:
+              "Relaciona tensão, corrente e resistência.",
+            result:
+              `${formatNumber(resistance)} Ω`
+          }
+        ],
 
-                    {
-                        title: "Usar a fórmula",
-                        formula:
-                            "P = V × I"
-                    },
-
-                    {
-                        title: "Substituir",
-                        formula:
-                            `P = ${voltage} × ${current}`
-                    },
-
-                    {
-                        title: "Resultado",
-                        formula:
-                            `P = ${formatNumber(power)} W`
-                    }
-                ],
-
-                methods: [
-                    {
-                        name: "Potência elétrica",
-                        description:
-                            "Calcula a potência a partir da tensão e corrente.",
-                        result:
-                            `${formatNumber(power)} W`
-                    }
-                ],
-
-                learning: {
-                    concept:
-                        "Potência elétrica mede a taxa de transferência de energia.",
-                    explanation:
-                        "Multiplicamos a tensão pela corrente.",
-                    tip:
-                        "No SI, a potência é medida em watts."
-                }
-            };
+        learning: {
+          concept:
+            "A lei de Ohm pode ser escrita como V = RI.",
+          explanation:
+            "Conhecendo tensão e corrente, podemos calcular resistência.",
+          tip:
+            "Mantém a tensão em volts e a corrente em ampères."
         }
+      };
     }
+  }
 
+  /* POTÊNCIA */
 
-    return null;
+  if (
+    text.includes("potência") &&
+    (
+      text.includes("volts") ||
+      /\d+\s*v\b/.test(text)
+    ) &&
+    (
+      text.includes("ampere") ||
+      /\d+\s*a\b/.test(text)
+    )
+  ) {
+    const voltage =
+      extractNumber(
+        text,
+        /(\d+(?:\.\d+)?)\s*v\b/
+      );
+
+    const current =
+      extractNumber(
+        text,
+        /(\d+(?:\.\d+)?)\s*a\b/
+      );
+
+    if (
+      voltage !== null &&
+      current !== null
+    ) {
+      const power =
+        voltage * current;
+
+      return {
+        answer:
+          `${formatNumber(power)} W`,
+
+        steps: [
+          {
+            title: "Identificar os dados",
+            description:
+              `Tensão = ${voltage} V; corrente = ${current} A.`
+          },
+
+          {
+            title: "Usar a fórmula",
+            description:
+              "P = V × I",
+            formula:
+              "P = V × I"
+          },
+
+          {
+            title: "Substituir",
+            description:
+              "Aplicamos os valores.",
+            formula:
+              `P = ${voltage} × ${current}`
+          },
+
+          {
+            title: "Resultado",
+            description:
+              "A potência é:",
+            formula:
+              `P = ${formatNumber(power)} W`
+          }
+        ],
+
+        methods: [
+          {
+            name: "Potência elétrica",
+            description:
+              "Calcula a potência através de tensão e corrente.",
+            result:
+              `${formatNumber(power)} W`
+          }
+        ],
+
+        learning: {
+          concept:
+            "Potência elétrica é a taxa de transferência de energia elétrica.",
+          explanation:
+            "P = V × I relaciona potência, tensão e corrente.",
+          tip:
+            "A unidade SI da potência é o watt (W)."
+        }
+      };
+    }
+  }
+
+  return null;
 }
-
 
 /* =========================================================
    CHEMISTRY
 ========================================================= */
 
 const ATOMIC_MASSES = {
-    H: 1.008,
-    He: 4.003,
-    Li: 6.94,
-    Be: 9.012,
-    B: 10.81,
-    C: 12.011,
-    N: 14.007,
-    O: 15.999,
-    F: 18.998,
-    Ne: 20.180,
-    Na: 22.990,
-    Mg: 24.305,
-    Al: 26.982,
-    Si: 28.085,
-    P: 30.974,
-    S: 32.06,
-    Cl: 35.45,
-    Ar: 39.948,
-    K: 39.098,
-    Ca: 40.078,
-    Sc: 44.956,
-    Ti: 47.867,
-    V: 50.942,
-    Cr: 52.00,
-    Mn: 54.938,
-    Fe: 55.845,
-    Co: 58.933,
-    Ni: 58.693,
-    Cu: 63.546,
-    Zn: 65.38,
-    Br: 79.904,
-    Ag: 107.868,
-    I: 126.904,
-    Ba: 137.327,
-    Au: 196.967,
-    Hg: 200.592,
-    Pb: 207.2
+  H: 1.008,
+  He: 4.003,
+  Li: 6.94,
+  Be: 9.012,
+  B: 10.81,
+  C: 12.011,
+  N: 14.007,
+  O: 15.999,
+  F: 18.998,
+  Ne: 20.180,
+  Na: 22.990,
+  Mg: 24.305,
+  Al: 26.982,
+  Si: 28.085,
+  P: 30.974,
+  S: 32.06,
+  Cl: 35.45,
+  Ar: 39.948,
+  K: 39.098,
+  Ca: 40.078,
+  Sc: 44.956,
+  Ti: 47.867,
+  V: 50.942,
+  Cr: 52.00,
+  Mn: 54.938,
+  Fe: 55.845,
+  Co: 58.933,
+  Ni: 58.693,
+  Cu: 63.546,
+  Zn: 65.38,
+  Br: 79.904,
+  Ag: 107.868,
+  I: 126.904,
+  Ba: 137.327,
+  Au: 196.967,
+  Hg: 200.592,
+  Pb: 207.2
 };
 
-
 function parseFormula(formula) {
+  const clean =
+    formula
+      .replace(/\s+/g, "")
+      .replace(
+        /[₀₁₂₃₄₅₆₇₈₉]/g,
+        char => {
+          const map = {
+            "₀": "0",
+            "₁": "1",
+            "₂": "2",
+            "₃": "3",
+            "₄": "4",
+            "₅": "5",
+            "₆": "6",
+            "₇": "7",
+            "₈": "8",
+            "₉": "9"
+          };
 
-    const clean =
-        String(formula)
-            .replace(/\s+/g, "")
-            .replace(/[₀₁₂₃₄₅₆₇₈₉]/g, char => {
-
-                const map = {
-                    "₀": "0",
-                    "₁": "1",
-                    "₂": "2",
-                    "₃": "3",
-                    "₄": "4",
-                    "₅": "5",
-                    "₆": "6",
-                    "₇": "7",
-                    "₈": "8",
-                    "₉": "9"
-                };
-
-                return map[char];
-            });
-
-    const regex =
-        /([A-Z][a-z]?)(\d*)/g;
-
-    const atoms = {};
-
-    let match;
-    let consumed = 0;
-
-    while (
-        (match = regex.exec(clean)) !== null
-    ) {
-
-        if (match.index !== consumed) {
-            return null;
+          return map[char];
         }
+      );
 
-        const element = match[1];
+  const regex =
+    /([A-Z][a-z]?)(\d*)/g;
 
-        const count =
-            match[2]
-                ? Number(match[2])
-                : 1;
+  const atoms = {};
 
-        if (!ATOMIC_MASSES[element]) {
-            return null;
-        }
+  let match;
+  let consumed = 0;
 
-        atoms[element] =
-            (atoms[element] || 0) + count;
-
-        consumed =
-            regex.lastIndex;
+  while (
+    (match = regex.exec(clean)) !== null
+  ) {
+    if (match.index !== consumed) {
+      return null;
     }
 
-    if (consumed !== clean.length) {
-        return null;
+    const element =
+      match[1];
+
+    const count =
+      match[2]
+        ? Number(match[2])
+        : 1;
+
+    if (!ATOMIC_MASSES[element]) {
+      return null;
     }
 
-    return atoms;
+    atoms[element] =
+      (atoms[element] || 0) +
+      count;
+
+    consumed =
+      regex.lastIndex;
+  }
+
+  if (consumed !== clean.length) {
+    return null;
+  }
+
+  return atoms;
 }
-
 
 function molarMass(formula) {
+  const atoms =
+    parseFormula(formula);
 
-    const atoms =
-        parseFormula(formula);
+  if (!atoms) {
+    return null;
+  }
 
-    if (!atoms) {
-        return null;
-    }
+  let total = 0;
 
-    let total = 0;
+  for (
+    const [element, count]
+    of Object.entries(atoms)
+  ) {
+    total +=
+      ATOMIC_MASSES[element] *
+      count;
+  }
 
-    for (const [element, count] of Object.entries(atoms)) {
-        total +=
-            ATOMIC_MASSES[element] * count;
-    }
-
-    return {
-        atoms,
-        mass: round(total, 3)
-    };
+  return {
+    atoms,
+    mass: round(total, 3)
+  };
 }
-
 
 function solveChemistry(problem) {
+  const text =
+    problem.trim();
 
-    const text =
-        problem.trim();
+  const lower =
+    text.toLowerCase();
 
-    const lower =
-        text.toLowerCase();
+  /* MASSA MOLAR */
 
+  if (
+    lower.includes("massa molar")
+  ) {
+    const formulaMatch =
+      text.match(
+        /\b([A-Z][A-Za-z]?(?:\d+)*)\b/
+      );
 
-    /* MASSA MOLAR */
+    if (formulaMatch) {
+      const formula =
+        formulaMatch[1];
 
-    if (
-        lower.includes("massa molar") ||
-        lower.includes("massa molecular")
-    ) {
+      const result =
+        molarMass(formula);
 
-        const formulas =
-            text.match(
-                /\b[A-Z][A-Za-z0-9₀₁₂₃₄₅₆₇₈₉]*\b/g
-            ) || [];
+      if (result) {
+        const breakdown =
+          Object.entries(
+            result.atoms
+          )
+            .map(
+              ([element, count]) =>
+                `${element}: ${count}`
+            )
+            .join(", ");
 
-        for (const formula of formulas) {
+        return {
+          answer:
+            `${formatNumber(result.mass)} g/mol`,
 
-            const result =
-                molarMass(formula);
+          steps: [
+            {
+              title: "Identificar a fórmula",
+              description:
+                `Fórmula analisada: ${formula}.`
+            },
 
-            if (!result) continue;
+            {
+              title: "Contar os átomos",
+              description:
+                `Composição: ${breakdown}.`
+            },
 
-            const breakdown =
-                Object.entries(result.atoms)
-                    .map(
-                        ([element, count]) =>
-                            `${element}: ${count}`
-                    )
-                    .join(", ");
+            {
+              title: "Somar as massas atómicas",
+              description:
+                "Multiplicamos cada massa atómica pelo número de átomos."
+            },
 
-            return {
-                answer:
-                    `${formatNumber(result.mass)} g/mol`,
-
-                steps: [
-                    {
-                        title: "Identificar a fórmula",
-                        description:
-                            `Fórmula analisada: ${formula}.`
-                    },
-
-                    {
-                        title: "Contar os átomos",
-                        description:
-                            `Composição: ${breakdown}.`
-                    },
-
-                    {
-                        title: "Somar as massas atómicas",
-                        description:
-                            "Multiplicamos cada massa atómica pelo número de átomos correspondente."
-                    },
-
-                    {
-                        title: "Resultado",
-                        formula:
-                            `M(${formula}) = ${formatNumber(result.mass)} g/mol`
-                    }
-                ],
-
-                methods: [
-                    {
-                        name: "Soma das massas atómicas",
-                        description:
-                            "Soma as contribuições dos elementos da fórmula.",
-                        result:
-                            `${formatNumber(result.mass)} g/mol`
-                    }
-                ],
-
-                learning: {
-                    concept:
-                        "Massa molar é a massa correspondente a um mol de uma substância.",
-                    explanation:
-                        "É calculada somando as massas atómicas dos elementos presentes.",
-                    tip:
-                        "Os índices da fórmula indicam quantos átomos de cada elemento estão presentes."
-                }
-            };
-        }
-    }
-
-
-    /* MOL */
-
-    if (
-        lower.includes("quantos mol") ||
-        lower.includes("número de mol") ||
-        lower.includes("numero de mol")
-    ) {
-
-        const mass =
-            extractNumber(
-                text,
-                /(\d+(?:\.\d+)?)\s*g\b/i
-            );
-
-        const formulas =
-            text.match(
-                /\b[A-Z][A-Za-z0-9₀₁₂₃₄₅₆₇₈₉]*\b/g
-            ) || [];
-
-        if (mass !== null) {
-
-            for (const formula of formulas) {
-
-                const molar =
-                    molarMass(formula);
-
-                if (!molar) continue;
-
-                const moles =
-                    mass / molar.mass;
-
-                return {
-                    answer:
-                        `${formatNumber(moles)} mol`,
-
-                    steps: [
-                        {
-                            title: "Identificar os dados",
-                            description:
-                                `Massa = ${mass} g; substância = ${formula}.`
-                        },
-
-                        {
-                            title: "Calcular a massa molar",
-                            formula:
-                                `M = ${formatNumber(molar.mass)} g/mol`
-                        },
-
-                        {
-                            title: "Usar a fórmula",
-                            formula:
-                                "n = m / M"
-                        },
-
-                        {
-                            title: "Substituir",
-                            formula:
-                                `n = ${mass} / ${formatNumber(molar.mass)}`
-                        },
-
-                        {
-                            title: "Resultado",
-                            formula:
-                                `n = ${formatNumber(moles)} mol`
-                        }
-                    ],
-
-                    methods: [
-                        {
-                            name: "Relação massa–mol",
-                            description:
-                                "Usa n = m/M.",
-                            result:
-                                `${formatNumber(moles)} mol`
-                        }
-                    ],
-
-                    learning: {
-                        concept:
-                            "O mol representa uma quantidade de matéria.",
-                        explanation:
-                            "A quantidade de mols pode ser obtida dividindo a massa pela massa molar.",
-                        tip:
-                            "Mantém massa em gramas quando M estiver em g/mol."
-                    }
-                };
+            {
+              title: "Resultado",
+              description:
+                "A massa molar é:",
+              formula:
+                `M(${formula}) = ${formatNumber(result.mass)} g/mol`
             }
-        }
+          ],
+
+          methods: [
+            {
+              name: "Soma das massas atómicas",
+              description:
+                "Soma as contribuições dos elementos da fórmula.",
+              result:
+                `${formatNumber(result.mass)} g/mol`
+            }
+          ],
+
+          learning: {
+            concept:
+              "Massa molar é a massa correspondente a um mol de uma substância.",
+            explanation:
+              "É obtida somando as massas atómicas dos átomos presentes na fórmula.",
+            tip:
+              "Os índices da fórmula indicam a quantidade de átomos."
+          }
+        };
+      }
     }
+  }
 
+  /* MOL */
 
-    /* CONCENTRAÇÃO */
+  if (
+    (
+      lower.includes("quantos mol") ||
+      lower.includes("número de mol") ||
+      lower.includes("numero de mol")
+    ) &&
+    lower.includes("g")
+  ) {
+    const mass =
+      extractNumber(
+        text,
+        /(\d+(?:\.\d+)?)\s*g\b/i
+      );
+
+    const formulaMatch =
+      text.match(
+        /\b([A-Z][A-Za-z]?(?:\d+)*)\b/
+      );
 
     if (
-        lower.includes("concentração") ||
-        lower.includes("concentracao")
+      mass !== null &&
+      formulaMatch
     ) {
+      const formula =
+        formulaMatch[1];
 
-        const mass =
-            extractNumber(
-                text,
-                /(\d+(?:\.\d+)?)\s*g\b/i
-            );
+      const molar =
+        molarMass(formula);
 
-        const volume =
-            extractNumber(
-                text,
-                /(\d+(?:\.\d+)?)\s*l\b/i
-            );
-
-        if (
-            mass !== null &&
-            volume !== null &&
-            volume !== 0
-        ) {
-
-            const concentration =
-                mass / volume;
-
-            return {
-                answer:
-                    `${formatNumber(concentration)} g/L`,
-
-                steps: [
-                    {
-                        title: "Identificar os dados",
-                        description:
-                            `Massa = ${mass} g; volume = ${volume} L.`
-                    },
-
-                    {
-                        title: "Usar a fórmula",
-                        formula:
-                            "C = m / V"
-                    },
-
-                    {
-                        title: "Substituir",
-                        formula:
-                            `C = ${mass} / ${volume}`
-                    },
-
-                    {
-                        title: "Resultado",
-                        formula:
-                            `C = ${formatNumber(concentration)} g/L`
-                    }
-                ],
-
-                methods: [
-                    {
-                        name: "Concentração comum",
-                        description:
-                            "Relaciona massa de soluto e volume de solução.",
-                        result:
-                            `${formatNumber(concentration)} g/L`
-                    }
-                ],
-
-                learning: {
-                    concept:
-                        "Concentração comum é a massa de soluto por volume de solução.",
-                    explanation:
-                        "Divide-se a massa do soluto pelo volume da solução.",
-                    tip:
-                        "Usa g e L para obter g/L."
-                }
-            };
-        }
-    }
-
-
-    /* MOLARIDADE */
-
-    if (
-        lower.includes("molaridade") ||
-        lower.includes("concentração molar") ||
-        lower.includes("concentracao molar")
-    ) {
-
+      if (molar) {
         const moles =
-            extractNumber(
-                text,
-                /(\d+(?:\.\d+)?)\s*mol\b/i
-            );
+          mass / molar.mass;
 
-        const volume =
-            extractNumber(
-                text,
-                /(\d+(?:\.\d+)?)\s*l\b/i
-            );
+        return {
+          answer:
+            `${formatNumber(moles)} mol`,
 
-        if (
-            moles !== null &&
-            volume !== null &&
-            volume !== 0
-        ) {
+          steps: [
+            {
+              title: "Identificar os dados",
+              description:
+                `Massa = ${mass} g; substância = ${formula}.`
+            },
 
-            const concentration =
-                moles / volume;
+            {
+              title: "Calcular a massa molar",
+              description:
+                `M(${formula}) = ${molar.mass} g/mol`,
+              formula:
+                `M = ${molar.mass} g/mol`
+            },
 
-            return {
-                answer:
-                    `${formatNumber(concentration)} mol/L`,
+            {
+              title: "Usar a fórmula",
+              description:
+                "n = m / M",
+              formula:
+                "n = m / M"
+            },
 
-                steps: [
-                    {
-                        title: "Identificar os dados",
-                        description:
-                            `n = ${moles} mol; V = ${volume} L.`
-                    },
+            {
+              title: "Substituir",
+              description:
+                "Aplicamos os valores.",
+              formula:
+                `n = ${mass} / ${molar.mass}`
+            },
 
-                    {
-                        title: "Usar a fórmula",
-                        formula:
-                            "C = n / V"
-                    },
+            {
+              title: "Resultado",
+              description:
+                "A quantidade de matéria é:",
+              formula:
+                `n = ${formatNumber(moles)} mol`
+            }
+          ],
 
-                    {
-                        title: "Substituir",
-                        formula:
-                            `C = ${moles} / ${volume}`
-                    },
+          methods: [
+            {
+              name: "Relação massa–mol",
+              description:
+                "Usa n = m/M.",
+              result:
+                `${formatNumber(moles)} mol`
+            }
+          ],
 
-                    {
-                        title: "Resultado",
-                        formula:
-                            `C = ${formatNumber(concentration)} mol/L`
-                    }
-                ],
-
-                methods: [
-                    {
-                        name: "Molaridade",
-                        description:
-                            "Relaciona quantidade de matéria e volume.",
-                        result:
-                            `${formatNumber(concentration)} mol/L`
-                    }
-                ],
-
-                learning: {
-                    concept:
-                        "Molaridade é a quantidade de mols de soluto por litro de solução.",
-                    explanation:
-                        "Calculamos dividindo os mols pelo volume em litros.",
-                    tip:
-                        "O volume deve estar em litros."
-                }
-            };
-        }
+          learning: {
+            concept:
+              "O mol representa quantidade de matéria.",
+            explanation:
+              "Dividimos a massa pela massa molar.",
+            tip:
+              "Usa g e g/mol para obter o resultado em mol."
+          }
+        };
+      }
     }
+  }
 
+  /* CONCENTRAÇÃO COMUM */
 
-    return null;
+  if (
+    lower.includes("concentração") &&
+    !lower.includes("molar") &&
+    (
+      lower.includes("g/l") ||
+      lower.includes("soluto")
+    )
+  ) {
+    const mass =
+      extractNumber(
+        text,
+        /(\d+(?:\.\d+)?)\s*g\b/i
+      );
+
+    const volume =
+      extractNumber(
+        text,
+        /(\d+(?:\.\d+)?)\s*l\b/i
+      );
+
+    if (
+      mass !== null &&
+      volume !== null &&
+      volume !== 0
+    ) {
+      const concentration =
+        mass / volume;
+
+      return {
+        answer:
+          `${formatNumber(concentration)} g/L`,
+
+        steps: [
+          {
+            title: "Identificar os dados",
+            description:
+              `Massa = ${mass} g; volume = ${volume} L.`
+          },
+
+          {
+            title: "Usar a fórmula",
+            description:
+              "C = m / V",
+            formula:
+              "C = m / V"
+          },
+
+          {
+            title: "Substituir",
+            description:
+              "Aplicamos os valores.",
+            formula:
+              `C = ${mass} / ${volume}`
+          },
+
+          {
+            title: "Resultado",
+            description:
+              "A concentração é:",
+            formula:
+              `C = ${formatNumber(concentration)} g/L`
+          }
+        ],
+
+        methods: [
+          {
+            name: "Concentração comum",
+            description:
+              "Relaciona massa do soluto e volume da solução.",
+            result:
+              `${formatNumber(concentration)} g/L`
+          }
+        ],
+
+        learning: {
+          concept:
+            "Concentração comum é a massa de soluto por volume de solução.",
+          explanation:
+            "Divide-se a massa do soluto pelo volume da solução.",
+          tip:
+            "Usa g e L para obter g/L."
+        }
+      };
+    }
+  }
+
+  /* MOLARIDADE */
+
+  if (
+    lower.includes("concentração molar") ||
+    lower.includes("molaridade")
+  ) {
+    const moles =
+      extractNumber(
+        text,
+        /(\d+(?:\.\d+)?)\s*mol\b/i
+      );
+
+    const volume =
+      extractNumber(
+        text,
+        /(\d+(?:\.\d+)?)\s*l\b/i
+      );
+
+    if (
+      moles !== null &&
+      volume !== null &&
+      volume !== 0
+    ) {
+      const concentration =
+        moles / volume;
+
+      return {
+        answer:
+          `${formatNumber(concentration)} mol/L`,
+
+        steps: [
+          {
+            title: "Identificar os dados",
+            description:
+              `Quantidade de matéria = ${moles} mol; volume = ${volume} L.`
+          },
+
+          {
+            title: "Usar a fórmula",
+            description:
+              "C = n / V",
+            formula:
+              "C = n / V"
+          },
+
+          {
+            title: "Substituir",
+            description:
+              "Aplicamos os valores.",
+            formula:
+              `C = ${moles} / ${volume}`
+          },
+
+          {
+            title: "Resultado",
+            description:
+              "A concentração molar é:",
+            formula:
+              `C = ${formatNumber(concentration)} mol/L`
+          }
+        ],
+
+        methods: [
+          {
+            name: "Molaridade",
+            description:
+              "Relaciona quantidade de matéria e volume.",
+            result:
+              `${formatNumber(concentration)} mol/L`
+          }
+        ],
+
+        learning: {
+          concept:
+            "Molaridade é a quantidade de mols de soluto por litro.",
+          explanation:
+            "Divide-se o número de mols pelo volume em litros.",
+          tip:
+            "O volume deve estar em litros."
+        }
+      };
+    }
+  }
+
+  return null;
 }
-
 
 /* =========================================================
    MAIN SOLVER
 ========================================================= */
 
 function solveProblem(problem, subject) {
+  const clean =
+    cleanProblem(problem);
 
-    const clean =
-        cleanProblem(problem);
-
-    if (!clean) {
-        return null;
-    }
-
-    if (subject === "math") {
-        return solveMath(clean);
-    }
-
-    if (subject === "physics") {
-        return solvePhysics(clean);
-    }
-
-    if (subject === "chemistry") {
-        return solveChemistry(clean);
-    }
-
+  if (!clean) {
     return null;
-}
+  }
 
+  if (subject === "math") {
+    return solveMath(clean);
+  }
+
+  if (subject === "physics") {
+    return solvePhysics(clean);
+  }
+
+  if (subject === "chemistry") {
+    return solveChemistry(clean);
+  }
+
+  return null;
+}
 
 /* =========================================================
    STATUS
 ========================================================= */
 
-app.get("/api/status", (req, res) => {
-
+app.get(
+  "/api/status",
+  (req, res) => {
     res.json({
-        success: true,
-        name: "EinsteinWeb",
-        brain: "Einstein Brain V0.4",
-        status: "online",
+      success: true,
+      name: "EinsteinWeb",
+      brain: "Einstein Brain V0.5",
+      status: "online",
 
-        engines: {
-            mathematics: "active",
-            physics: "active",
-            chemistry: "active",
-            artificialIntelligence: "not_connected"
-        }
+      engines: {
+        mathematics: "active",
+        physics: "active",
+        chemistry: "active",
+        artificialIntelligence: "not_connected"
+      }
     });
-
-});
-
+  }
+);
 
 /* =========================================================
    SOLVE API
 ========================================================= */
 
-app.post("/api/solve", (req, res) => {
-
+app.post(
+  "/api/solve",
+  (req, res) => {
     try {
+      const {
+        problem,
+        subject
+      } = req.body || {};
 
-        const {
-            problem,
-            subject
-        } = req.body || {};
-
-        if (
-            typeof problem !== "string" ||
-            !problem.trim()
-        ) {
-
-            return res.status(400).json({
-                success: false,
-                error: "Digite um problema."
-            });
-        }
-
-        const selectedSubject =
-            ["math", "physics", "chemistry"]
-                .includes(subject)
-                ? subject
-                : "math";
-
-        const result =
-            solveProblem(
-                problem,
-                selectedSubject
-            );
-
-        if (!result) {
-
-            return res.status(422).json({
-                success: false,
-                error:
-                    "O Einstein Brain V0.4 não conseguiu resolver este problema. Tente escrever o exercício com mais detalhes."
-            });
-        }
-
-        return res.json({
-            success: true,
-            subject: selectedSubject,
-            result
+      if (
+        typeof problem !== "string" ||
+        !problem.trim()
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: "Digite um problema."
         });
+      }
+
+      const selectedSubject =
+        ["math", "physics", "chemistry"]
+          .includes(subject)
+          ? subject
+          : "math";
+
+      const result =
+        solveProblem(
+          problem,
+          selectedSubject
+        );
+
+      if (!result) {
+        return res.status(422).json({
+          success: false,
+          error:
+            "O Einstein Brain não conseguiu interpretar este problema. Tente escrever os dados, unidades e pergunta com mais detalhes."
+        });
+      }
+
+      return res.json({
+        success: true,
+        subject: selectedSubject,
+        result
+      });
 
     } catch (error) {
+      console.error(
+        "SOLVE ERROR:",
+        error
+      );
 
-        console.error("Solve error:", error);
-
-        return res.status(500).json({
-            success: false,
-            error:
-                "Ocorreu um erro interno ao processar o problema."
-        });
+      return res.status(500).json({
+        success: false,
+        error:
+          "Erro interno ao resolver o problema."
+      });
     }
-
-});
-
+  }
+);
 
 /* =========================================================
-   FRONTEND FALLBACK
+   FRONTEND
 ========================================================= */
 
-app.get("*", (req, res) => {
+/*
+   IMPORTANTE:
+   Não usamos app.get("*").
+   Express 5 / path-to-regexp gera erro com "*".
+*/
 
+app.use(
+  (req, res) => {
     res.sendFile(
-        path.join(
-            publicPath,
-            "index.html"
-        )
+      path.join(
+        publicPath,
+        "index.html"
+      )
     );
-
-});
-
+  }
+);
 
 /* =========================================================
    START
 ========================================================= */
 
-app.listen(PORT, () => {
-
+app.listen(
+  PORT,
+  "0.0.0.0",
+  () => {
     console.log("");
-    console.log("========================================");
-    console.log("           EINSTEINWEB");
-    console.log("       Einstein Brain V0.4");
-    console.log("========================================");
-    console.log(`Server running on port ${PORT}`);
-    console.log("Mathematics Engine: ACTIVE");
-    console.log("Physics Engine: ACTIVE");
-    console.log("Chemistry Engine: ACTIVE");
-    console.log("AI Layer: NOT CONNECTED");
-    console.log("========================================");
-
-});
+    console.log(
+      "========================================"
+    );
+    console.log(
+      "          EINSTEINWEB"
+    );
+    console.log(
+      "          Einstein Brain V0.5"
+    );
+    console.log(
+      "========================================"
+    );
+    console.log(
+      `Server running on port ${PORT}`
+    );
+    console.log(
+      "Mathematics Engine: ACTIVE"
+    );
+    console.log(
+      "Physics Engine: ACTIVE"
+    );
+    console.log(
+      "Chemistry Engine: ACTIVE"
+    );
+    console.log(
+      "AI Layer: NOT CONNECTED"
+    );
+    console.log(
+      "========================================"
+    );
+  }
+);
+```
