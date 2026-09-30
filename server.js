@@ -1,289 +1,537 @@
+```javascript
 /* =========================================================
-   EINSTEINWEB
-   Einstein Brain V0.4
-   Mathematics + Physics + Chemistry
+   EINSTEINWEB V0.4
+   FRONTEND CONTROLLER
 ========================================================= */
 
-const express = require("express");
-const path = require("path");
-const math = require("mathjs");
-
-const app = express();
-
-const PORT = process.env.PORT || 3000;
-
-const publicPath = path.join(__dirname, "public");
+"use strict";
 
 
 /* =========================================================
-   EXPRESS
+   STATE
 ========================================================= */
 
-app.use(
-  express.json({
-    limit: "10mb"
-  })
-);
+const state = {
+  subject: "math",
+  currentResult: null,
+  currentProblem: "",
 
-app.use(
-  express.urlencoded({
-    extended: true,
-    limit: "10mb"
-  })
-);
+  history: JSON.parse(
+    localStorage.getItem("einsteinHistory") || "[]"
+  ),
 
-app.use(
-  express.static(publicPath)
-);
+  favorites: JSON.parse(
+    localStorage.getItem("einsteinFavorites") || "[]"
+  )
+};
 
 
 /* =========================================================
-   GENERAL UTILITIES
+   DOM
 ========================================================= */
 
-function cleanProblem(problem) {
+const $ = (id) => document.getElementById(id);
 
-  if (typeof problem !== "string") {
+const problemInput = $("problemInput");
+const solveBtn = $("solveBtn");
+
+const loadingOverlay = $("loadingOverlay");
+
+const solutionPage = $("solutionPage");
+const homePage = $("homePage");
+const historyPage = $("historyPage");
+const favoritesPage = $("favoritesPage");
+
+const answerValue = $("answerValue");
+const stepsContainer = $("stepsContainer");
+const methodsContainer = $("methodsContainer");
+const graphContainer = $("graphContainer");
+const learningContainer = $("learningContainer");
+
+const solutionProblem = $("solutionProblem");
+const solutionSubject = $("solutionSubject");
+
+const selectedSubject = $("selectedSubject");
+const subjectSelectorText = $("subjectSelectorText");
+const subjectMenu = $("subjectMenu");
+
+const recentList = $("recentList");
+const historyContainer = $("historyContainer");
+const favoritesContainer = $("favoritesContainer");
+
+const toast = $("toast");
+const toastText = $("toastText");
+
+
+/* =========================================================
+   SAFE HELPERS
+========================================================= */
+
+function escapeHTML(value) {
+
+  if (value === null || value === undefined) {
     return "";
   }
 
-  return problem
-    .trim()
-    .replace(/\s+/g, " ");
-
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 
-function formatNumber(value) {
+function showToast(message) {
 
-  if (typeof value !== "number") {
-    return String(value);
+  if (!toast || !toastText) {
+    console.log(message);
+    return;
   }
 
-  if (!Number.isFinite(value)) {
-    return String(value);
-  }
+  toastText.textContent = message;
 
-  if (Math.abs(value) < 1e-10) {
-    return "0";
-  }
+  toast.classList.add("show");
 
-  const rounded =
-    Math.round(value * 1e10) / 1e10;
+  clearTimeout(window.__toastTimer);
 
-  return String(rounded);
-
+  window.__toastTimer =
+    setTimeout(() => {
+      toast.classList.remove("show");
+    }, 3500);
 }
 
 
-function normalizeExpression(expression) {
+function showLoading(show) {
 
-  return String(expression)
-    .replace(/,/g, ".")
-    .replace(/×/g, "*")
-    .replace(/÷/g, "/")
-    .replace(/−/g, "-")
-    .replace(/\s+/g, "");
+  if (!loadingOverlay) {
+    return;
+  }
 
+  if (show) {
+    loadingOverlay.classList.remove("hidden");
+  } else {
+    loadingOverlay.classList.add("hidden");
+  }
 }
 
 
-function safeEvaluate(expression) {
+function saveHistory() {
 
-  try {
+  localStorage.setItem(
+    "einsteinHistory",
+    JSON.stringify(state.history)
+  );
+}
 
-    const result =
-      math.evaluate(
-        normalizeExpression(expression)
+
+function saveFavorites() {
+
+  localStorage.setItem(
+    "einsteinFavorites",
+    JSON.stringify(state.favorites)
+  );
+}
+
+
+/* =========================================================
+   PAGE NAVIGATION
+========================================================= */
+
+function showPage(page) {
+
+  document
+    .querySelectorAll(".page")
+    .forEach(section => {
+      section.classList.remove("active-page");
+    });
+
+
+  if (page === "home" && homePage) {
+    homePage.classList.add("active-page");
+  }
+
+  if (page === "history" && historyPage) {
+    historyPage.classList.add("active-page");
+    renderHistory();
+  }
+
+  if (page === "favorites" && favoritesPage) {
+    favoritesPage.classList.add("active-page");
+    renderFavorites();
+  }
+
+  if (page === "solution" && solutionPage) {
+    solutionPage.classList.add("active-page");
+  }
+
+
+  document
+    .querySelectorAll(".nav-item")
+    .forEach(item => {
+
+      item.classList.toggle(
+        "active",
+        item.dataset.page === page
       );
 
-    if (
-      typeof result === "number" &&
-      Number.isFinite(result)
-    ) {
-      return result;
-    }
+    });
 
-    return null;
 
-  } catch {
-
-    return null;
-
-  }
-
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
 }
 
 
-function extractNumber(text, regex) {
+/* =========================================================
+   SUBJECT
+========================================================= */
 
-  const match =
-    text.match(regex);
+const subjects = {
 
-  if (!match) {
-    return null;
+  math: {
+    name: "Matemática",
+    symbol: "∑"
+  },
+
+  physics: {
+    name: "Física",
+    symbol: "⚡"
+  },
+
+  chemistry: {
+    name: "Química",
+    symbol: "⚗"
   }
 
-  const value =
-    Number(
-      String(match[1])
-        .replace(",", ".")
-    );
-
-  return Number.isFinite(value)
-    ? value
-    : null;
-
-}
+};
 
 
-function round(value, decimals = 4) {
+function setSubject(subject) {
 
-  const factor =
-    Math.pow(10, decimals);
+  if (!subjects[subject]) {
+    subject = "math";
+  }
 
-  return Math.round(
-    value * factor
-  ) / factor;
+  state.subject = subject;
+
+  const data = subjects[subject];
+
+
+  if (selectedSubject) {
+    selectedSubject.textContent =
+      data.name;
+  }
+
+
+  if (subjectSelectorText) {
+
+    subjectSelectorText.innerHTML = `
+      <span class="subject-symbol">
+        ${data.symbol}
+      </span>
+
+      <span>
+        ${data.name}
+      </span>
+
+      <span class="selector-arrow">⌄</span>
+    `;
+
+  }
+
+
+  document
+    .querySelectorAll(".subject-option")
+    .forEach(option => {
+
+      option.classList.toggle(
+        "active",
+        option.dataset.subject === subject
+      );
+
+    });
+
+
+  document
+    .querySelectorAll(".subject-card")
+    .forEach(card => {
+
+      card.classList.toggle(
+        "active",
+        card.dataset.subject === subject
+      );
+
+    });
+
+
+  if (subjectMenu) {
+    subjectMenu.classList.remove("open");
+  }
 
 }
 
 
 /* =========================================================
-   MATHEMATICS ENGINE
+   SUBJECT MENU
 ========================================================= */
 
-function splitEquation(problem) {
+if (subjectSelectorText) {
 
-  const match =
-    problem.match(
-      /(.+?)\s*=\s*(.+)/
-    );
+  subjectSelectorText.addEventListener(
+    "click",
+    () => {
 
-  if (!match) {
-    return null;
-  }
+      if (subjectMenu) {
+        subjectMenu.classList.toggle("open");
+      }
 
-  return {
-    left: match[1].trim(),
-    right: match[2].trim()
-  };
+    }
+  );
 
 }
 
 
-function parsePolynomial(equation) {
+document
+  .querySelectorAll(".subject-option")
+  .forEach(option => {
+
+    option.addEventListener(
+      "click",
+      () => {
+
+        setSubject(
+          option.dataset.subject
+        );
+
+      }
+    );
+
+  });
+
+
+document
+  .querySelectorAll(".subject-card")
+  .forEach(card => {
+
+    card.addEventListener(
+      "click",
+      () => {
+
+        setSubject(
+          card.dataset.subject
+        );
+
+        if (problemInput) {
+          problemInput.focus();
+        }
+
+      }
+    );
+
+  });
+
+
+/* =========================================================
+   CLOSE SUBJECT MENU
+========================================================= */
+
+document.addEventListener(
+  "click",
+  event => {
+
+    if (
+      subjectMenu &&
+      subjectSelectorText &&
+      !subjectMenu.contains(event.target) &&
+      !subjectSelectorText.contains(event.target)
+    ) {
+
+      subjectMenu.classList.remove("open");
+
+    }
+
+  }
+);
+
+
+/* =========================================================
+   API REQUEST
+========================================================= */
+
+async function solveProblem() {
+
+  if (!problemInput || !solveBtn) {
+    return;
+  }
+
+
+  const problem =
+    problemInput.value.trim();
+
+
+  if (!problem) {
+
+    showToast(
+      "Digite um problema primeiro."
+    );
+
+    problemInput.focus();
+
+    return;
+  }
+
+
+  state.currentProblem =
+    problem;
+
+
+  showLoading(true);
+
+  solveBtn.disabled = true;
+
 
   try {
 
-    const normalized =
-      normalizeExpression(equation)
-        .replace(/\*\*/g, "^");
+    console.log(
+      "EinsteinWeb → enviando problema:",
+      problem
+    );
+
+    console.log(
+      "EinsteinWeb → disciplina:",
+      state.subject
+    );
 
 
-    const expression =
-      math.parse(normalized);
+    const response =
+      await fetch(
+        "/api/solve",
+        {
+
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+
+          body: JSON.stringify({
+
+            problem,
+
+            subject:
+              state.subject
+
+          })
+
+        }
+      );
 
 
-    const fn =
-      expression.compile();
+    console.log(
+      "EinsteinWeb → HTTP:",
+      response.status
+    );
 
 
-    const values = [];
+    const rawText =
+      await response.text();
 
 
-    [-2, -1, 0, 1, 2].forEach(x => {
-
-      try {
-
-        const y =
-          Number(
-            fn.evaluate({ x })
-          );
+    console.log(
+      "EinsteinWeb → resposta:",
+      rawText
+    );
 
 
-        values.push({
-          x,
-          y
-        });
+    let data;
 
-      } catch {
 
-        values.push({
-          x,
-          y: NaN
-        });
+    try {
 
-      }
+      data =
+        JSON.parse(rawText);
+
+    } catch {
+
+      throw new Error(
+        "O servidor respondeu com um formato inválido."
+      );
+
+    }
+
+
+    if (!response.ok || !data.success) {
+
+      throw new Error(
+        data.error ||
+        `Erro do servidor (${response.status}).`
+      );
+
+    }
+
+
+    if (
+      !data.result ||
+      typeof data.result !== "object"
+    ) {
+
+      throw new Error(
+        "O servidor não devolveu uma solução válida."
+      );
+
+    }
+
+
+    state.currentResult =
+      data.result;
+
+
+    addToHistory({
+
+      problem,
+
+      subject:
+        state.subject,
+
+      result:
+        data.result
 
     });
 
 
-    if (
-      values.some(
-        item => !Number.isFinite(item.y)
-      )
-    ) {
-      return null;
-    }
+    renderSolution(
+      problem,
+      state.subject,
+      data.result
+    );
 
 
-    const c =
-      values.find(
-        item => item.x === 0
-      ).y;
+    showPage("solution");
 
 
-    const y1 =
-      values.find(
-        item => item.x === 1
-      ).y;
+  } catch (error) {
+
+    console.error(
+      "EinsteinWeb solve error:",
+      error
+    );
 
 
-    const ym1 =
-      values.find(
-        item => item.x === -1
-      ).y;
+    showToast(
+      error.message ||
+      "Não foi possível resolver o problema."
+    );
 
 
-    const y2 =
-      values.find(
-        item => item.x === 2
-      ).y;
+  } finally {
 
+    showLoading(false);
 
-    const ym2 =
-      values.find(
-        item => item.x === -2
-      ).y;
-
-
-    const b =
-      (y1 - ym1) / 2;
-
-
-    const a =
-      (y2 + ym2 - 2 * c) / 8;
-
-
-    if (
-      !Number.isFinite(a) ||
-      !Number.isFinite(b) ||
-      !Number.isFinite(c)
-    ) {
-      return null;
-    }
-
-
-    return {
-      a: round(a),
-      b: round(b),
-      c: round(c)
-    };
-
-  } catch {
-
-    return null;
+    solveBtn.disabled = false;
 
   }
 
@@ -291,2460 +539,1513 @@ function parsePolynomial(equation) {
 
 
 /* =========================================================
-   LINEAR EQUATION
+   SOLVE BUTTON
 ========================================================= */
 
-function solveLinear(a, b) {
-
-  if (Math.abs(a) < 1e-12) {
-
-    if (Math.abs(b) < 1e-12) {
-
-      return {
-
-        answer:
-          "Infinitas soluções",
-
-        steps: [
-
-          {
-            title: "Analisar a equação",
-
-            description:
-              "Os dois lados representam a mesma expressão."
-          }
-
-        ],
-
-        methods: [],
-
-        learning: {
-
-          concept:
-            "Uma identidade matemática é verdadeira para todos os valores permitidos da variável.",
-
-          explanation:
-            "Quando os coeficientes dos dois lados se anulam completamente, qualquer valor de x satisfaz a igualdade.",
-
-          tip:
-            "Simplifica os dois lados antes de procurar uma solução única."
-
-        }
-
-      };
-
-    }
-
-
-    return {
-
-      answer:
-        "Sem solução",
-
-      steps: [
-
-        {
-          title: "Analisar a equação",
-
-          description:
-            "A equação resulta numa igualdade impossível."
-        }
-
-      ],
-
-      methods: [],
-
-      learning: {
-
-        concept:
-          "Uma equação sem solução não possui nenhum valor da variável que torne a igualdade verdadeira.",
-
-        explanation:
-          "Depois de simplificar a equação, obtemos uma contradição.",
-
-        tip:
-          "Verifica os sinais e os termos constantes."
-
-      }
-
-    };
-
-  }
-
-
-  const x =
-    -b / a;
-
-
-  return {
-
-    answer:
-      `x = ${formatNumber(x)}`,
-
-    steps: [
-
-      {
-        title:
-          "Identificar a equação",
-
-        description:
-          `Temos uma equação linear na forma ax + b = 0, com a = ${formatNumber(a)} e b = ${formatNumber(b)}.`,
-
-        formula:
-          `${formatNumber(a)}x + ${formatNumber(b)} = 0`
-      },
-
-      {
-        title:
-          "Isolar o termo com x",
-
-        description:
-          `Subtraímos ${formatNumber(b)} dos dois lados.`,
-
-        formula:
-          `${formatNumber(a)}x = ${formatNumber(-b)}`
-      },
-
-      {
-        title:
-          "Dividir pelo coeficiente de x",
-
-        description:
-          `Dividimos ambos os lados por ${formatNumber(a)}.`,
-
-        formula:
-          `x = ${formatNumber(-b)} / ${formatNumber(a)}`
-      },
-
-      {
-        title:
-          "Resultado",
-
-        description:
-          "O valor encontrado para x é:",
-
-        formula:
-          `x = ${formatNumber(x)}`
-      }
-
-    ],
-
-    methods: [
-
-      {
-        name:
-          "Isolamento algébrico",
-
-        description:
-          "Movemos os termos constantes para o outro lado e dividimos pelo coeficiente de x.",
-
-        result:
-          `x = ${formatNumber(x)}`
-      }
-
-    ],
-
-    learning: {
-
-      concept:
-        "Uma equação linear é uma equação em que a variável aparece apenas no primeiro grau.",
-
-      explanation:
-        "O objetivo é deixar x sozinho. Qualquer operação feita num lado da igualdade também deve ser feita no outro.",
-
-      tip:
-        "Quando tens ax + b = 0, podes usar diretamente x = -b/a, desde que a seja diferente de zero."
-
-    }
-
-  };
-
-}
-
-
-/* =========================================================
-   QUADRATIC EQUATION
-========================================================= */
-
-function solveQuadratic(a, b, c) {
-
-  if (Math.abs(a) < 1e-12) {
-    return solveLinear(b, c);
-  }
-
-
-  const discriminant =
-    b * b - 4 * a * c;
-
-
-  if (discriminant < 0) {
-
-    const realPart =
-      -b / (2 * a);
-
-
-    const imaginaryPart =
-      Math.sqrt(-discriminant) /
-      Math.abs(2 * a);
-
-
-    return {
-
-      answer:
-        `x = ${formatNumber(realPart)} ± ${formatNumber(imaginaryPart)}i`,
-
-      steps: [
-
-        {
-          title:
-            "Identificar a equação",
-
-          description:
-            `A equação é quadrática: ${formatNumber(a)}x² + ${formatNumber(b)}x + ${formatNumber(c)} = 0.`
-        },
-
-        {
-          title:
-            "Calcular o discriminante",
-
-          description:
-            "Usamos Δ = b² − 4ac.",
-
-          formula:
-            `Δ = (${formatNumber(b)})² − 4(${formatNumber(a)})(${formatNumber(c)}) = ${formatNumber(discriminant)}`
-        },
-
-        {
-          title:
-            "Interpretar o discriminante",
-
-          description:
-            "Como Δ < 0, a equação não possui raízes reais."
-        },
-
-        {
-          title:
-            "Escrever as raízes complexas",
-
-          description:
-            "Usamos a forma x = (-b ± √Δ) / 2a.",
-
-          formula:
-            `x = ${formatNumber(realPart)} ± ${formatNumber(imaginaryPart)}i`
-        }
-
-      ],
-
-      methods: [
-
-        {
-          name:
-            "Fórmula quadrática",
-
-          description:
-            "A fórmula quadrática permite encontrar as raízes complexas.",
-
-          result:
-            `x = ${formatNumber(realPart)} ± ${formatNumber(imaginaryPart)}i`
-        }
-
-      ],
-
-      learning: {
-
-        concept:
-          "O discriminante determina a natureza das raízes de uma equação quadrática.",
-
-        explanation:
-          "Quando Δ é negativo, a raiz quadrada do discriminante envolve a unidade imaginária i.",
-
-        tip:
-          "Δ > 0 indica duas raízes reais; Δ = 0 indica uma raiz real dupla; Δ < 0 indica raízes complexas."
-
-      }
-
-    };
-
-  }
-
-
-  const sqrtD =
-    Math.sqrt(discriminant);
-
-
-  const x1 =
-    (-b + sqrtD) /
-    (2 * a);
-
-
-  const x2 =
-    (-b - sqrtD) /
-    (2 * a);
-
-
-  const rootsEqual =
-    Math.abs(x1 - x2) < 1e-10;
-
-
-  const factorization =
-    findFactorization(a, b, c);
-
-
-  const methods = [
-
-    {
-      name:
-        "Fórmula quadrática",
-
-      description:
-        "Aplica diretamente a fórmula x = (-b ± √Δ) / 2a.",
-
-      result:
-        rootsEqual
-          ? `x = ${formatNumber(x1)}`
-          : `x₁ = ${formatNumber(x1)}, x₂ = ${formatNumber(x2)}`
-    },
-
-    {
-      name:
-        "Completamento do quadrado",
-
-      description:
-        "Reorganiza a equação até obter uma expressão do tipo (x − h)² = k.",
-
-      result:
-        rootsEqual
-          ? `x = ${formatNumber(x1)}`
-          : `x₁ = ${formatNumber(x1)}, x₂ = ${formatNumber(x2)}`
-    }
-
-  ];
-
-
-  if (factorization) {
-
-    methods.push({
-
-      name:
-        "Fatorização",
-
-      description:
-        "Procura fatores que reproduzam os coeficientes da equação.",
-
-      result:
-        formatFactorization(
-          a,
-          b,
-          c,
-          factorization
-        )
-
-    });
-
-  }
-
-
-  return {
-
-    answer:
-      rootsEqual
-        ? `x = ${formatNumber(x1)}`
-        : `x₁ = ${formatNumber(x1)}, x₂ = ${formatNumber(x2)}`,
-
-    steps: [
-
-      {
-        title:
-          "Identificar a equação",
-
-        description:
-          "A equação está na forma ax² + bx + c = 0.",
-
-        formula:
-          `${formatNumber(a)}x² + ${formatNumber(b)}x + ${formatNumber(c)} = 0`
-      },
-
-      {
-        title:
-          "Calcular o discriminante",
-
-        description:
-          "Usamos Δ = b² − 4ac.",
-
-        formula:
-          `Δ = (${formatNumber(b)})² − 4(${formatNumber(a)})(${formatNumber(c)}) = ${formatNumber(discriminant)}`
-      },
-
-      {
-        title:
-          "Calcular a raiz do discriminante",
-
-        description:
-          "Como Δ ≥ 0, calculamos √Δ.",
-
-        formula:
-          `√Δ = ${formatNumber(sqrtD)}`
-      },
-
-      {
-        title:
-          "Aplicar a fórmula quadrática",
-
-        description:
-          "Substituímos os valores na fórmula.",
-
-        formula:
-          `x = (${formatNumber(-b)} ± ${formatNumber(sqrtD)}) / ${formatNumber(2 * a)}`
-      },
-
-      {
-        title:
-          "Encontrar as soluções",
-
-        description:
-          rootsEqual
-            ? "As duas raízes são iguais."
-            : "Calculamos as duas possibilidades do sinal ±.",
-
-        formula:
-          rootsEqual
-            ? `x = ${formatNumber(x1)}`
-            : `x₁ = ${formatNumber(x1)} ; x₂ = ${formatNumber(x2)}`
-      }
-
-    ],
-
-    methods,
-
-    graph:
-      createQuadraticGraph(
-        a,
-        b,
-        c
-      ),
-
-    learning: {
-
-      concept:
-        "Uma equação quadrática é uma equação de segundo grau, normalmente escrita como ax² + bx + c = 0.",
-
-      explanation:
-        "O discriminante é calculado primeiro porque ele informa a natureza das raízes. Depois usamos essas informações para encontrar os valores de x.",
-
-      tip:
-        "Antes de aplicar a fórmula quadrática, confirma sempre se a equação está organizada com tudo de um lado e zero do outro."
-
-    }
-
-  };
-
-}
-
-
-/* =========================================================
-   FACTORIZATION
-========================================================= */
-
-function findFactorization(a, b, c) {
-
-  if (
-    !Number.isInteger(a) ||
-    !Number.isInteger(b) ||
-    !Number.isInteger(c)
-  ) {
-    return null;
-  }
-
-
-  for (let m = -100; m <= 100; m++) {
-
-    if (m === 0) {
-      continue;
-    }
-
-
-    for (let n = -100; n <= 100; n++) {
-
-      if (n === 0) {
-        continue;
-      }
-
-
-      if (m * n !== a) {
-        continue;
-      }
-
-
-      for (let p = -100; p <= 100; p++) {
-
-        if (p === 0) {
-          continue;
-        }
-
-
-        for (let q = -100; q <= 100; q++) {
-
-          if (q === 0) {
-            continue;
-          }
-
-
-          if (p * q !== c) {
-            continue;
-          }
-
-
-          if (m * q + n * p === b) {
-
-            return {
-              m,
-              n,
-              p,
-              q
-            };
-
-          }
-
-        }
-
-      }
-
-    }
-
-  }
-
-
-  return null;
-
-}
-
-
-function formatFactorization(a, b, c, f) {
-
-  if (!f) {
-    return null;
-  }
-
-
-  return (
-    `(${f.m}x ${f.p >= 0 ? "+" : "-"} ${Math.abs(f.p)})` +
-    `(${f.n}x ${f.q >= 0 ? "+" : "-"} ${Math.abs(f.q)})`
+if (solveBtn) {
+
+  solveBtn.addEventListener(
+    "click",
+    solveProblem
   );
 
 }
 
 
 /* =========================================================
-   GRAPHS
+   ENTER / CTRL+ENTER
 ========================================================= */
 
-function createQuadraticGraph(a, b, c) {
+if (problemInput) {
 
-  const points = [];
+  problemInput.addEventListener(
+    "keydown",
+    event => {
 
+      if (
+        event.key === "Enter" &&
+        (event.ctrlKey || event.metaKey)
+      ) {
 
-  const vertex =
-    -b / (2 * a);
+        event.preventDefault();
 
+        solveProblem();
 
-  const start =
-    Math.floor(vertex - 8);
+      }
 
-
-  const end =
-    Math.ceil(vertex + 8);
-
-
-  for (
-    let x = start;
-    x <= end;
-    x += 0.25
-  ) {
-
-    points.push({
-
-      x:
-        round(x, 3),
-
-      y:
-        round(
-          a * x * x +
-          b * x +
-          c,
-          3
-        )
-
-    });
-
-  }
-
-
-  return {
-
-    type:
-      "quadratic",
-
-    points
-
-  };
-
-}
-
-
-function createLinearGraph(a, b) {
-
-  const points = [];
-
-
-  for (
-    let x = -10;
-    x <= 10;
-    x += 0.5
-  ) {
-
-    points.push({
-
-      x,
-
-      y:
-        round(
-          a * x + b,
-          4
-        )
-
-    });
-
-  }
-
-
-  return {
-
-    type:
-      "linear",
-
-    points
-
-  };
+    }
+  );
 
 }
 
 
 /* =========================================================
-   MATH SOLVER
+   RENDER SOLUTION
 ========================================================= */
 
-function solveMath(problem) {
+function renderSolution(
+  problem,
+  subject,
+  result
+) {
 
-  const equation =
-    splitEquation(problem);
+  if (solutionProblem) {
 
-
-  if (equation) {
-
-    const left =
-      normalizeExpression(
-        equation.left
-      );
-
-
-    const right =
-      normalizeExpression(
-        equation.right
-      );
-
-
-    const expression =
-      `${left}-(${right})`;
-
-
-    const polynomial =
-      parsePolynomial(expression);
-
-
-    if (polynomial) {
-
-      const {
-        a,
-        b,
-        c
-      } = polynomial;
-
-
-      if (
-        Math.abs(a) > 1e-10
-      ) {
-
-        return solveQuadratic(
-          a,
-          b,
-          c
-        );
-
-      }
-
-
-      if (
-        Math.abs(b) > 1e-10
-      ) {
-
-        const result =
-          solveLinear(
-            b,
-            c
-          );
-
-
-        result.graph =
-          createLinearGraph(
-            b,
-            c
-          );
-
-
-        return result;
-
-      }
-
-
-      if (
-        Math.abs(c) < 1e-10
-      ) {
-
-        return {
-
-          answer:
-            "Infinitas soluções",
-
-          steps: [
-
-            {
-              title:
-                "Simplificar a equação",
-
-              description:
-                "Depois de simplificar os dois lados, obtemos 0 = 0."
-            }
-
-          ],
-
-          methods: [],
-
-          learning: {
-
-            concept:
-              "Quando uma equação se transforma em uma identidade, todos os valores permitidos da variável são soluções.",
-
-            explanation:
-              "A igualdade 0 = 0 é verdadeira independentemente do valor de x.",
-
-            tip:
-              "Simplifica ambos os lados antes de procurar uma solução única."
-
-          }
-
-        };
-
-      }
-
-
-      return {
-
-        answer:
-          "Sem solução",
-
-        steps: [
-
-          {
-            title:
-              "Simplificar a equação",
-
-            description:
-              `A equação transforma-se numa igualdade impossível: ${formatNumber(c)} = 0.`
-          }
-
-        ],
-
-        methods: [],
-
-        learning: {
-
-          concept:
-            "Uma equação sem solução não possui nenhum valor de x que satisfaça a igualdade.",
-
-          explanation:
-            "Depois de simplificar os termos, resta uma constante diferente de zero igual a zero.",
-
-          tip:
-            "Confirma os sinais e os termos constantes da equação."
-
-        }
-
-      };
-
-    }
+    solutionProblem.textContent =
+      problem;
 
   }
 
 
-  /* =====================================================
-     BASIC CALCULATIONS
-  ===================================================== */
+  if (solutionSubject) {
 
-  const expressionMatch =
-    problem.match(
-      /(?:calcule|calcular|calculate|quanto é|quanto e|resolva|resolve)?\s*([\d.,+\-*/^×÷() ]+)/i
+    solutionSubject.textContent =
+      subjects[subject]?.name ||
+      subject;
+
+  }
+
+
+  if (answerValue) {
+
+    answerValue.textContent =
+      result.answer ||
+      "Resultado não disponível.";
+
+  }
+
+
+  renderSteps(
+    result.steps || []
+  );
+
+
+  renderMethods(
+    result.methods || []
+  );
+
+
+  renderGraph(
+    result.graph
+  );
+
+
+  renderLearning(
+    result.learning
+  );
+
+
+  resetTabs();
+
+}
+
+
+/* =========================================================
+   STEPS
+========================================================= */
+
+function renderSteps(steps) {
+
+  if (!stepsContainer) {
+    return;
+  }
+
+
+  if (!Array.isArray(steps) || steps.length === 0) {
+
+    stepsContainer.innerHTML = `
+      <div class="empty-state">
+        <p>Não foram fornecidos passos.</p>
+      </div>
+    `;
+
+    return;
+  }
+
+
+  stepsContainer.innerHTML =
+    steps
+      .map((step, index) => {
+
+        return `
+          <div class="step-card">
+
+            <div class="step-number">
+              ${index + 1}
+            </div>
+
+            <div class="step-content">
+
+              <h3>
+                ${escapeHTML(
+                  step.title ||
+                  `Passo ${index + 1}`
+                )}
+              </h3>
+
+              ${
+                step.description
+                  ? `
+                    <p>
+                      ${escapeHTML(
+                        step.description
+                      )}
+                    </p>
+                  `
+                  : ""
+              }
+
+              ${
+                step.formula
+                  ? `
+                    <div class="formula">
+                      ${escapeHTML(
+                        step.formula
+                      )}
+                    </div>
+                  `
+                  : ""
+              }
+
+            </div>
+
+          </div>
+        `;
+
+      })
+      .join("");
+
+}
+
+
+/* =========================================================
+   METHODS
+========================================================= */
+
+function renderMethods(methods) {
+
+  if (!methodsContainer) {
+    return;
+  }
+
+
+  if (!Array.isArray(methods) || methods.length === 0) {
+
+    methodsContainer.innerHTML = `
+      <div class="empty-state">
+        <p>Nenhum método adicional disponível.</p>
+      </div>
+    `;
+
+    return;
+  }
+
+
+  methodsContainer.innerHTML =
+    methods
+      .map(method => {
+
+        return `
+          <div class="method-card">
+
+            <div class="method-content">
+
+              <h3>
+                ${escapeHTML(
+                  method.name ||
+                  "Método"
+                )}
+              </h3>
+
+              ${
+                method.description
+                  ? `
+                    <p>
+                      ${escapeHTML(
+                        method.description
+                      )}
+                    </p>
+                  `
+                  : ""
+              }
+
+              ${
+                method.result
+                  ? `
+                    <div class="formula">
+                      ${escapeHTML(
+                        method.result
+                      )}
+                    </div>
+                  `
+                  : ""
+              }
+
+            </div>
+
+          </div>
+        `;
+
+      })
+      .join("");
+
+}
+
+
+/* =========================================================
+   GRAPH
+========================================================= */
+
+function renderGraph(graph) {
+
+  if (!graphContainer) {
+    return;
+  }
+
+
+  if (
+    !graph ||
+    !Array.isArray(graph.points) ||
+    graph.points.length === 0
+  ) {
+
+    graphContainer.innerHTML = `
+      <div class="graph-empty">
+
+        <div>📈</div>
+
+        <p>
+          O gráfico será mostrado aqui quando o problema
+          tiver uma representação visual.
+        </p>
+
+      </div>
+    `;
+
+    return;
+  }
+
+
+  /*
+    Não dependemos de nenhuma biblioteca externa.
+    Criamos uma representação simples dos pontos.
+  */
+
+  const points =
+    graph.points;
+
+
+  const xs =
+    points.map(p => Number(p.x));
+
+  const ys =
+    points.map(p => Number(p.y));
+
+
+  const minX =
+    Math.min(...xs);
+
+  const maxX =
+    Math.max(...xs);
+
+  const minY =
+    Math.min(...ys);
+
+  const maxY =
+    Math.max(...ys);
+
+
+  const width = 700;
+  const height = 350;
+
+  const padding = 35;
+
+
+  function mapX(x) {
+
+    if (maxX === minX) {
+      return width / 2;
+    }
+
+    return padding +
+      ((x - minX) /
+      (maxX - minX)) *
+      (width - padding * 2);
+
+  }
+
+
+  function mapY(y) {
+
+    if (maxY === minY) {
+      return height / 2;
+    }
+
+    return height -
+      padding -
+      ((y - minY) /
+      (maxY - minY)) *
+      (height - padding * 2);
+
+  }
+
+
+  const pathData =
+    points
+      .map((point, index) => {
+
+        const x =
+          mapX(Number(point.x));
+
+        const y =
+          mapY(Number(point.y));
+
+        return `${index === 0 ? "M" : "L"} ${x} ${y}`;
+
+      })
+      .join(" ");
+
+
+  const zeroY =
+    minY <= 0 && maxY >= 0
+      ? mapY(0)
+      : null;
+
+
+  const zeroX =
+    minX <= 0 && maxX >= 0
+      ? mapX(0)
+      : null;
+
+
+  graphContainer.innerHTML = `
+
+    <div class="graph-wrapper">
+
+      <svg
+        viewBox="0 0 ${width} ${height}"
+        class="einstein-graph"
+        preserveAspectRatio="none"
+      >
+
+        ${
+          zeroY !== null
+            ? `
+              <line
+                x1="${padding}"
+                y1="${zeroY}"
+                x2="${width - padding}"
+                y2="${zeroY}"
+                class="graph-axis"
+              />
+            `
+            : ""
+        }
+
+        ${
+          zeroX !== null
+            ? `
+              <line
+                x1="${zeroX}"
+                y1="${padding}"
+                x2="${zeroX}"
+                y2="${height - padding}"
+                class="graph-axis"
+              />
+            `
+            : ""
+        }
+
+        <path
+          d="${pathData}"
+          class="graph-line"
+          fill="none"
+        />
+
+      </svg>
+
+      <div class="graph-info">
+        ${escapeHTML(
+          graph.type ||
+          "gráfico"
+        )}
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+/* =========================================================
+   LEARNING
+========================================================= */
+
+function renderLearning(learning) {
+
+  if (!learningContainer) {
+    return;
+  }
+
+
+  if (!learning) {
+
+    learningContainer.innerHTML = `
+      <div class="empty-state">
+        <p>Não há explicação adicional.</p>
+      </div>
+    `;
+
+    return;
+  }
+
+
+  learningContainer.innerHTML = `
+
+    ${
+      learning.concept
+        ? `
+          <div class="learning-card">
+
+            <h3>Conceito</h3>
+
+            <p>
+              ${escapeHTML(
+                learning.concept
+              )}
+            </p>
+
+          </div>
+        `
+        : ""
+    }
+
+
+    ${
+      learning.explanation
+        ? `
+          <div class="learning-card">
+
+            <h3>Explicação</h3>
+
+            <p>
+              ${escapeHTML(
+                learning.explanation
+              )}
+            </p>
+
+          </div>
+        `
+        : ""
+    }
+
+
+    ${
+      learning.tip
+        ? `
+          <div class="learning-card">
+
+            <h3>Dica</h3>
+
+            <p>
+              ${escapeHTML(
+                learning.tip
+              )}
+            </p>
+
+          </div>
+        `
+        : ""
+    }
+
+  `;
+
+}
+
+
+/* =========================================================
+   TABS
+========================================================= */
+
+function resetTabs() {
+
+  document
+    .querySelectorAll(".solution-tab")
+    .forEach(tab => {
+
+      tab.classList.toggle(
+        "active",
+        tab.dataset.tab === "solution"
+      );
+
+    });
+
+
+  document
+    .querySelectorAll(".solution-tab-content")
+    .forEach(content => {
+
+      content.classList.remove("active");
+
+    });
+
+
+  const solutionTab =
+    $("solutionTab");
+
+  if (solutionTab) {
+    solutionTab.classList.add("active");
+  }
+
+}
+
+
+document
+  .querySelectorAll(".solution-tab")
+  .forEach(tab => {
+
+    tab.addEventListener(
+      "click",
+      () => {
+
+        const target =
+          tab.dataset.tab;
+
+
+        document
+          .querySelectorAll(".solution-tab")
+          .forEach(item => {
+
+            item.classList.toggle(
+              "active",
+              item === tab
+            );
+
+          });
+
+
+        document
+          .querySelectorAll(".solution-tab-content")
+          .forEach(content => {
+
+            content.classList.remove(
+              "active"
+            );
+
+          });
+
+
+        const targetElement =
+          $(`${target}Tab`);
+
+        if (targetElement) {
+
+          targetElement.classList.add(
+            "active"
+          );
+
+        }
+
+      }
+    );
+
+  });
+
+
+/* =========================================================
+   HISTORY
+========================================================= */
+
+function addToHistory(item) {
+
+  const entry = {
+
+    id:
+      Date.now(),
+
+    problem:
+      item.problem,
+
+    subject:
+      item.subject,
+
+    result:
+      item.result,
+
+    createdAt:
+      new Date().toISOString()
+
+  };
+
+
+  state.history =
+    [
+      entry,
+      ...state.history
+    ].slice(0, 50);
+
+
+  saveHistory();
+
+  renderRecent();
+
+}
+
+
+function renderRecent() {
+
+  if (!recentList) {
+    return;
+  }
+
+
+  if (state.history.length === 0) {
+
+    recentList.innerHTML = `
+      <div class="empty-state">
+
+        <span>◷</span>
+
+        <p>
+          Os seus problemas recentes aparecerão aqui.
+        </p>
+
+      </div>
+    `;
+
+    return;
+  }
+
+
+  recentList.innerHTML =
+    state.history
+      .slice(0, 5)
+      .map(item => {
+
+        return `
+          <button
+            class="recent-item"
+            type="button"
+            data-history-id="${item.id}"
+          >
+
+            <div>
+
+              <strong>
+                ${escapeHTML(
+                  item.problem
+                )}
+              </strong>
+
+              <small>
+                ${
+                  subjects[item.subject]?.name ||
+                  item.subject
+                }
+              </small>
+
+            </div>
+
+            <span>→</span>
+
+          </button>
+        `;
+
+      })
+      .join("");
+
+
+  recentList
+    .querySelectorAll(
+      "[data-history-id]"
+    )
+    .forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          const item =
+            state.history.find(
+              entry =>
+                String(entry.id) ===
+                button.dataset.historyId
+            );
+
+
+          if (!item) {
+            return;
+          }
+
+
+          state.currentProblem =
+            item.problem;
+
+          state.currentResult =
+            item.result;
+
+
+          if (problemInput) {
+            problemInput.value =
+              item.problem;
+          }
+
+
+          setSubject(
+            item.subject
+          );
+
+
+          renderSolution(
+            item.problem,
+            item.subject,
+            item.result
+          );
+
+
+          showPage("solution");
+
+        }
+      );
+
+    });
+
+}
+
+
+function renderHistory() {
+
+  if (!historyContainer) {
+    return;
+  }
+
+
+  if (state.history.length === 0) {
+
+    historyContainer.innerHTML = `
+      <div class="empty-state large">
+
+        <span>◷</span>
+
+        <p>
+          Ainda não tens problemas no histórico.
+        </p>
+
+      </div>
+    `;
+
+    return;
+  }
+
+
+  historyContainer.innerHTML =
+    state.history
+      .map(item => {
+
+        return `
+          <div
+            class="history-item"
+            data-history-id="${item.id}"
+          >
+
+            <div>
+
+              <span class="history-subject">
+                ${
+                  subjects[item.subject]?.name ||
+                  item.subject
+                }
+              </span>
+
+              <h3>
+                ${escapeHTML(
+                  item.problem
+                )}
+              </h3>
+
+              <p>
+                ${
+                  escapeHTML(
+                    item.result?.answer ||
+                    ""
+                  )
+                }
+              </p>
+
+            </div>
+
+            <button
+              type="button"
+              class="history-open-btn"
+            >
+              Abrir →
+            </button>
+
+          </div>
+        `;
+
+      })
+      .join("");
+
+
+  historyContainer
+    .querySelectorAll(
+      ".history-item"
+    )
+    .forEach(itemElement => {
+
+      const id =
+        Number(
+          itemElement.dataset.historyId
+        );
+
+
+      const item =
+        state.history.find(
+          entry => entry.id === id
+        );
+
+
+      const button =
+        itemElement.querySelector(
+          ".history-open-btn"
+        );
+
+
+      if (button && item) {
+
+        button.addEventListener(
+          "click",
+          () => {
+
+            if (problemInput) {
+              problemInput.value =
+                item.problem;
+            }
+
+
+            setSubject(
+              item.subject
+            );
+
+
+            renderSolution(
+              item.problem,
+              item.subject,
+              item.result
+            );
+
+
+            showPage("solution");
+
+          }
+        );
+
+      }
+
+    });
+
+}
+
+
+/* =========================================================
+   FAVORITES
+========================================================= */
+
+function isFavorite(problem) {
+
+  return state.favorites.some(
+    item =>
+      item.problem === problem
+  );
+
+}
+
+
+function toggleFavorite() {
+
+  if (!state.currentProblem) {
+    return;
+  }
+
+
+  const index =
+    state.favorites.findIndex(
+      item =>
+        item.problem ===
+        state.currentProblem
     );
 
 
-  if (expressionMatch) {
+  if (index >= 0) {
 
-    const expression =
-      expressionMatch[1].trim();
+    state.favorites.splice(
+      index,
+      1
+    );
 
+    showToast(
+      "Removido dos favoritos."
+    );
 
-    const result =
-      safeEvaluate(expression);
+  } else {
 
+    state.favorites.unshift({
 
-    if (result !== null) {
+      id:
+        Date.now(),
 
-      return {
+      problem:
+        state.currentProblem,
 
-        answer:
-          formatNumber(result),
+      subject:
+        state.subject,
 
-        steps: [
+      result:
+        state.currentResult
 
-          {
-            title:
-              "Identificar a expressão",
+    });
 
-            description:
-              `A expressão a calcular é ${expression}.`
-          },
-
-          {
-            title:
-              "Efetuar os cálculos",
-
-            description:
-              "Resolvemos a expressão respeitando a ordem das operações.",
-
-            formula:
-              expression
-          },
-
-          {
-            title:
-              "Resultado",
-
-            description:
-              "O resultado final é:",
-
-            formula:
-              formatNumber(result)
-          }
-
-        ],
-
-        methods: [
-
-          {
-            name:
-              "Ordem das operações",
-
-            description:
-              "Multiplicações e divisões são realizadas antes de adições e subtrações.",
-
-            result:
-              formatNumber(result)
-          }
-
-        ],
-
-        learning: {
-
-          concept:
-            "A ordem das operações determina a sequência correta dos cálculos.",
-
-          explanation:
-            "Parênteses têm prioridade, depois potências, multiplicações/divisões e finalmente adições/subtrações.",
-
-          tip:
-            "Usa parênteses quando quiseres deixar a ordem do cálculo explícita."
-
-        }
-
-      };
-
-    }
+    showToast(
+      "Adicionado aos favoritos."
+    );
 
   }
 
 
-  return null;
+  saveFavorites();
+
+  updateFavoriteButton();
+
+  renderFavorites();
+
+}
+
+
+function updateFavoriteButton() {
+
+  const button =
+    $("favoriteBtn");
+
+  if (!button) {
+    return;
+  }
+
+
+  if (
+    isFavorite(
+      state.currentProblem
+    )
+  ) {
+
+    button.textContent = "★";
+
+  } else {
+
+    button.textContent = "☆";
+
+  }
+
+}
+
+
+function renderFavorites() {
+
+  if (!favoritesContainer) {
+    return;
+  }
+
+
+  if (state.favorites.length === 0) {
+
+    favoritesContainer.innerHTML = `
+      <div class="empty-state large">
+
+        <span>☆</span>
+
+        <p>
+          Ainda não tens problemas favoritos.
+        </p>
+
+      </div>
+    `;
+
+    return;
+  }
+
+
+  favoritesContainer.innerHTML =
+    state.favorites
+      .map(item => {
+
+        return `
+          <div class="history-item">
+
+            <div>
+
+              <span class="history-subject">
+                ${
+                  subjects[item.subject]?.name ||
+                  item.subject
+                }
+              </span>
+
+              <h3>
+                ${escapeHTML(
+                  item.problem
+                )}
+              </h3>
+
+              <p>
+                ${
+                  escapeHTML(
+                    item.result?.answer ||
+                    ""
+                  )
+                }
+              </p>
+
+            </div>
+
+            <button
+              type="button"
+              class="history-open-btn favorite-open"
+              data-favorite-id="${item.id}"
+            >
+              Abrir →
+            </button>
+
+          </div>
+        `;
+
+      })
+      .join("");
+
+
+  favoritesContainer
+    .querySelectorAll(
+      ".favorite-open"
+    )
+    .forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          const id =
+            Number(
+              button.dataset.favoriteId
+            );
+
+
+          const item =
+            state.favorites.find(
+              entry =>
+                entry.id === id
+            );
+
+
+          if (!item) {
+            return;
+          }
+
+
+          if (problemInput) {
+            problemInput.value =
+              item.problem;
+          }
+
+
+          setSubject(
+            item.subject
+          );
+
+
+          state.currentProblem =
+            item.problem;
+
+          state.currentResult =
+            item.result;
+
+
+          renderSolution(
+            item.problem,
+            item.subject,
+            item.result
+          );
+
+
+          showPage("solution");
+
+        }
+      );
+
+    });
+
+}
+
+
+const favoriteBtn =
+  $("favoriteBtn");
+
+
+if (favoriteBtn) {
+
+  favoriteBtn.addEventListener(
+    "click",
+    toggleFavorite
+  );
 
 }
 
 
 /* =========================================================
-   PHYSICS ENGINE
+   BACK BUTTON
 ========================================================= */
 
-function solvePhysics(problem) {
+const backBtn =
+  $("backBtn");
 
-  const text =
-    problem
-      .toLowerCase()
-      .replace(/,/g, ".");
 
+if (backBtn) {
 
-  /* =====================================================
-     VELOCITY
-  ===================================================== */
+  backBtn.addEventListener(
+    "click",
+    () => {
 
-  if (
-    text.includes("velocidade") &&
-    (
-      text.includes("distância") ||
-      text.includes("percorre") ||
-      text.includes("percorreu")
-    ) &&
-    (
-      text.includes("tempo") ||
-      text.includes("hora") ||
-      text.includes("horas") ||
-      text.includes("segundo") ||
-      text.includes("segundos")
-    )
-  ) {
-
-    const distanceMatch =
-      text.match(
-        /(\d+(?:\.\d+)?)\s*(km|m)\b/
-      );
-
-
-    const timeMatch =
-      text.match(
-        /(\d+(?:\.\d+)?)\s*(h|hora|horas|min|minuto|minutos|s|segundo|segundos)\b/
-      );
-
-
-    if (
-      distanceMatch &&
-      timeMatch
-    ) {
-
-      const distance =
-        Number(
-          distanceMatch[1]
-        );
-
-
-      const distanceUnit =
-        distanceMatch[2];
-
-
-      const time =
-        Number(
-          timeMatch[1]
-        );
-
-
-      const timeUnit =
-        timeMatch[2];
-
-
-      const distanceMeters =
-        distanceUnit === "km"
-          ? distance * 1000
-          : distance;
-
-
-      let timeSeconds;
-
-
-      if (
-        timeUnit === "h" ||
-        timeUnit === "hora" ||
-        timeUnit === "horas"
-      ) {
-
-        timeSeconds =
-          time * 3600;
-
-      } else if (
-        timeUnit === "min" ||
-        timeUnit === "minuto" ||
-        timeUnit === "minutos"
-      ) {
-
-        timeSeconds =
-          time * 60;
-
-      } else {
-
-        timeSeconds =
-          time;
-
-      }
-
-
-      if (timeSeconds === 0) {
-        return null;
-      }
-
-
-      const velocitySI =
-        distanceMeters /
-        timeSeconds;
-
-
-      let originalVelocity =
-        null;
-
-
-      if (
-        distanceUnit === "km" &&
-        (
-          timeUnit === "h" ||
-          timeUnit === "hora" ||
-          timeUnit === "horas"
-        )
-      ) {
-
-        originalVelocity =
-          distance / time;
-
-      }
-
-
-      const answer =
-        originalVelocity !== null
-          ? `${formatNumber(originalVelocity)} km/h (${formatNumber(velocitySI)} m/s)`
-          : `${formatNumber(velocitySI)} m/s`;
-
-
-      return {
-
-        answer,
-
-        steps: [
-
-          {
-            title:
-              "Identificar os dados",
-
-            description:
-              `Distância = ${distance} ${distanceUnit}; tempo = ${time} ${timeUnit}.`
-          },
-
-          {
-            title:
-              "Usar a fórmula da velocidade",
-
-            description:
-              "A velocidade média é a distância dividida pelo tempo.",
-
-            formula:
-              "v = d / t"
-          },
-
-          {
-            title:
-              "Substituir os valores",
-
-            description:
-              "Mantemos também as unidades originais quando possível.",
-
-            formula:
-              originalVelocity !== null
-                ? `v = ${distance} km / ${time} h`
-                : `v = ${distanceMeters} m / ${timeSeconds} s`
-          },
-
-          {
-            title:
-              "Resultado",
-
-            description:
-              "A velocidade média é:",
-
-            formula:
-              answer
-          }
-
-        ],
-
-        methods: [
-
-          {
-            name:
-              "Fórmula da velocidade",
-
-            description:
-              "Divide a distância percorrida pelo intervalo de tempo.",
-
-            result:
-              answer
-          },
-
-          {
-            name:
-              "Sistema Internacional",
-
-            description:
-              "Converte a distância para metros e o tempo para segundos.",
-
-            result:
-              `${formatNumber(velocitySI)} m/s`
-          }
-
-        ],
-
-        learning: {
-
-          concept:
-            "Velocidade média mede quanto espaço é percorrido por unidade de tempo.",
-
-          explanation:
-            "Dividimos a distância pelo tempo para descobrir quanto espaço é percorrido em cada unidade de tempo.",
-
-          tip:
-            "Confirma sempre as unidades. km/h e m/s representam a mesma grandeza."
-
-        }
-
-      };
+      showPage("home");
 
     }
-
-  }
-
-
-  /* =====================================================
-     FORCE
-  ===================================================== */
-
-  if (
-    text.includes("força") &&
-    (
-      text.includes("massa") ||
-      text.includes("kg")
-    ) &&
-    (
-      text.includes("aceleração") ||
-      text.includes("aceleracao") ||
-      text.includes("m/s")
-    )
-  ) {
-
-    const mass =
-      extractNumber(
-        text,
-        /(\d+(?:\.\d+)?)\s*kg/
-      );
-
-
-    const acceleration =
-      extractNumber(
-        text,
-        /(\d+(?:\.\d+)?)\s*m\/s(?:²|\^2|2)/
-      );
-
-
-    if (
-      mass !== null &&
-      acceleration !== null
-    ) {
-
-      const force =
-        mass * acceleration;
-
-
-      return {
-
-        answer:
-          `${formatNumber(force)} N`,
-
-        steps: [
-
-          {
-            title:
-              "Identificar os dados",
-
-            description:
-              `Massa = ${formatNumber(mass)} kg e aceleração = ${formatNumber(acceleration)} m/s².`
-          },
-
-          {
-            title:
-              "Usar a segunda lei de Newton",
-
-            description:
-              "A força resultante é o produto da massa pela aceleração.",
-
-            formula:
-              "F = m × a"
-          },
-
-          {
-            title:
-              "Substituir os valores",
-
-            description:
-              "Colocamos os valores conhecidos na fórmula.",
-
-            formula:
-              `F = ${formatNumber(mass)} × ${formatNumber(acceleration)}`
-          },
-
-          {
-            title:
-              "Resultado",
-
-            description:
-              "A força resultante é:",
-
-            formula:
-              `F = ${formatNumber(force)} N`
-          }
-
-        ],
-
-        methods: [
-
-          {
-            name:
-              "Segunda lei de Newton",
-
-            description:
-              "Relaciona força, massa e aceleração.",
-
-            result:
-              `${formatNumber(force)} N`
-          }
-
-        ],
-
-        learning: {
-
-          concept:
-            "A segunda lei de Newton é F = ma.",
-
-          explanation:
-            "Para uma mesma massa, aumentar a aceleração aumenta proporcionalmente a força necessária.",
-
-          tip:
-            "A unidade da força no SI é o newton (N)."
-
-        }
-
-      };
-
-    }
-
-  }
-
-
-  /* =====================================================
-     DENSITY
-  ===================================================== */
-
-  if (
-    text.includes("densidade") &&
-    (
-      text.includes("massa") ||
-      text.includes("kg") ||
-      text.includes("g")
-    ) &&
-    (
-      text.includes("volume") ||
-      text.includes("litro") ||
-      text.includes("m³") ||
-      text.includes("m3")
-    )
-  ) {
-
-    const massMatch =
-      text.match(
-        /(\d+(?:\.\d+)?)\s*(kg|g)\b/
-      );
-
-
-    const volumeMatch =
-      text.match(
-        /(\d+(?:\.\d+)?)\s*(m3|m³|l|litro|litros)\b/
-      );
-
-
-    if (
-      massMatch &&
-      volumeMatch
-    ) {
-
-      const mass =
-        Number(
-          massMatch[1]
-        );
-
-
-      const massUnit =
-        massMatch[2];
-
-
-      const volume =
-        Number(
-          volumeMatch[1]
-        );
-
-
-      const volumeUnit =
-        volumeMatch[2];
-
-
-      const massKg =
-        massUnit === "g"
-          ? mass / 1000
-          : mass;
-
-
-      const volumeM3 =
-        (
-          volumeUnit === "l" ||
-          volumeUnit === "litro" ||
-          volumeUnit === "litros"
-        )
-          ? volume / 1000
-          : volume;
-
-
-      if (volumeM3 === 0) {
-        return null;
-      }
-
-
-      const density =
-        massKg / volumeM3;
-
-
-      return {
-
-        answer:
-          `${formatNumber(density)} kg/m³`,
-
-        steps: [
-
-          {
-            title:
-              "Identificar os dados",
-
-            description:
-              `Massa = ${mass} ${massUnit}; volume = ${volume} ${volumeUnit}.`
-          },
-
-          {
-            title:
-              "Usar a fórmula da densidade",
-
-            description:
-              "A densidade é a massa dividida pelo volume.",
-
-            formula:
-              "ρ = m / V"
-          },
-
-          {
-            title:
-              "Converter para o SI",
-
-            description:
-              `Massa = ${formatNumber(massKg)} kg; volume = ${formatNumber(volumeM3)} m³.`
-          },
-
-          {
-            title:
-              "Resultado",
-
-            description:
-              "A densidade é:",
-
-            formula:
-              `ρ = ${formatNumber(density)} kg/m³`
-          }
-
-        ],
-
-        methods: [
-
-          {
-            name:
-              "Densidade",
-
-            description:
-              "Relaciona a quantidade de massa com o espaço ocupado.",
-
-            result:
-              `${formatNumber(density)} kg/m³`
-          }
-
-        ],
-
-        learning: {
-
-          concept:
-            "Densidade é a quantidade de massa existente por unidade de volume.",
-
-          explanation:
-            "Dividir a massa pelo volume mostra quanta massa está concentrada em cada unidade de espaço.",
-
-          tip:
-            "No SI, a densidade é expressa em kg/m³."
-
-        }
-
-      };
-
-    }
-
-  }
-
-
-  /* =====================================================
-     OHM'S LAW
-  ===================================================== */
-
-  if (
-    (
-      text.includes("resistência") ||
-      text.includes("resistencia")
-    ) &&
-    (
-      text.includes("tensão") ||
-      text.includes("tensao") ||
-      text.includes("voltagem") ||
-      text.includes("volts")
-    ) &&
-    (
-      text.includes("corrente") ||
-      text.includes("ampere") ||
-      text.includes("ampères")
-    )
-  ) {
-
-    const voltage =
-      extractNumber(
-        text,
-        /(\d+(?:\.\d+)?)\s*v\b/
-      );
-
-
-    const current =
-      extractNumber(
-        text,
-        /(\d+(?:\.\d+)?)\s*a\b/
-      );
-
-
-    if (
-      voltage !== null &&
-      current !== null &&
-      current !== 0
-    ) {
-
-      const resistance =
-        voltage / current;
-
-
-      return {
-
-        answer:
-          `${formatNumber(resistance)} Ω`,
-
-        steps: [
-
-          {
-            title:
-              "Identificar os dados",
-
-            description:
-              `Tensão = ${formatNumber(voltage)} V; corrente = ${formatNumber(current)} A.`
-          },
-
-          {
-            title:
-              "Usar a lei de Ohm",
-
-            description:
-              "A resistência é a tensão dividida pela corrente.",
-
-            formula:
-              "R = V / I"
-          },
-
-          {
-            title:
-              "Substituir os valores",
-
-            description:
-              "Colocamos os valores na fórmula.",
-
-            formula:
-              `R = ${formatNumber(voltage)} / ${formatNumber(current)}`
-          },
-
-          {
-            title:
-              "Resultado",
-
-            description:
-              "A resistência é:",
-
-            formula:
-              `R = ${formatNumber(resistance)} Ω`
-          }
-
-        ],
-
-        methods: [
-
-          {
-            name:
-              "Lei de Ohm",
-
-            description:
-              "Relaciona tensão, corrente e resistência.",
-
-            result:
-              `${formatNumber(resistance)} Ω`
-          }
-
-        ],
-
-        learning: {
-
-          concept:
-            "A lei de Ohm é V = RI.",
-
-          explanation:
-            "Se conhecemos a tensão e a corrente, podemos reorganizar a fórmula para obter R = V/I.",
-
-          tip:
-            "Mantém a tensão em volts e a corrente em ampères para obter a resistência em ohms."
-
-        }
-
-      };
-
-    }
-
-  }
-
-
-  /* =====================================================
-     ELECTRICAL POWER
-  ===================================================== */
-
-  if (
-    text.includes("potência") ||
-    text.includes("potencia")
-  ) {
-
-    const voltage =
-      extractNumber(
-        text,
-        /(\d+(?:\.\d+)?)\s*v\b/
-      );
-
-
-    const current =
-      extractNumber(
-        text,
-        /(\d+(?:\.\d+)?)\s*a\b/
-      );
-
-
-    if (
-      voltage !== null &&
-      current !== null
-    ) {
-
-      const power =
-        voltage * current;
-
-
-      return {
-
-        answer:
-          `${formatNumber(power)} W`,
-
-        steps: [
-
-          {
-            title:
-              "Identificar os dados",
-
-            description:
-              `Tensão = ${voltage} V; corrente = ${current} A.`
-          },
-
-          {
-            title:
-              "Usar a fórmula da potência elétrica",
-
-            description:
-              "A potência pode ser calculada multiplicando tensão e corrente.",
-
-            formula:
-              "P = V × I"
-          },
-
-          {
-            title:
-              "Substituir",
-
-            description:
-              "Aplicamos os valores fornecidos.",
-
-            formula:
-              `P = ${voltage} × ${current}`
-          },
-
-          {
-            title:
-              "Resultado",
-
-            description:
-              "A potência é:",
-
-            formula:
-              `P = ${formatNumber(power)} W`
-          }
-
-        ],
-
-        methods: [
-
-          {
-            name:
-              "Potência elétrica",
-
-            description:
-              "Calcula a potência usando tensão e corrente.",
-
-            result:
-              `${formatNumber(power)} W`
-          }
-
-        ],
-
-        learning: {
-
-          concept:
-            "Potência elétrica mede a taxa de transferência de energia elétrica.",
-
-          explanation:
-            "Quanto maior a tensão ou a corrente, maior será a potência, mantendo a outra grandeza constante.",
-
-          tip:
-            "No SI, a potência é medida em watts (W)."
-
-        }
-
-      };
-
-    }
-
-  }
-
-
-  return null;
+  );
 
 }
 
 
 /* =========================================================
-   CHEMISTRY ENGINE
+   NEW PROBLEM
 ========================================================= */
 
-const ATOMIC_MASSES = {
+function newProblem() {
 
-  H: 1.008,
-  He: 4.003,
-
-  Li: 6.94,
-  Be: 9.012,
-  B: 10.81,
-  C: 12.011,
-  N: 14.007,
-  O: 15.999,
-  F: 18.998,
-  Ne: 20.180,
-
-  Na: 22.990,
-  Mg: 24.305,
-  Al: 26.982,
-  Si: 28.085,
-  P: 30.974,
-  S: 32.06,
-  Cl: 35.45,
-  Ar: 39.948,
-
-  K: 39.098,
-  Ca: 40.078,
-  Sc: 44.956,
-  Ti: 47.867,
-  V: 50.942,
-  Cr: 52.00,
-  Mn: 54.938,
-  Fe: 55.845,
-  Co: 58.933,
-  Ni: 58.693,
-  Cu: 63.546,
-  Zn: 65.38,
-
-  Br: 79.904,
-  Ag: 107.868,
-  I: 126.904,
-  Ba: 137.327,
-  Au: 196.967,
-  Hg: 200.592,
-  Pb: 207.2
-
-};
-
-
-/* =========================================================
-   CHEMICAL FORMULA PARSER
-========================================================= */
-
-function parseFormula(formula) {
-
-  if (
-    typeof formula !== "string" ||
-    !formula.trim()
-  ) {
-    return null;
+  if (problemInput) {
+    problemInput.value = "";
   }
 
 
-  const clean =
-    formula
-      .replace(/\s+/g, "")
-      .replace(
-        /[₀₁₂₃₄₅₆₇₈₉]/g,
-        char => {
-
-          const map = {
-
-            "₀": "0",
-            "₁": "1",
-            "₂": "2",
-            "₃": "3",
-            "₄": "4",
-            "₅": "5",
-            "₆": "6",
-            "₇": "7",
-            "₈": "8",
-            "₉": "9"
-
-          };
-
-          return map[char];
-
-        }
-      );
+  state.currentProblem = "";
+  state.currentResult = null;
 
 
-  const regex =
-    /([A-Z][a-z]?)(\d*)/g;
+  showPage("home");
 
 
-  const atoms = {};
+  setTimeout(() => {
 
-
-  let match;
-
-  let consumed = 0;
-
-
-  while (
-    (match = regex.exec(clean)) !== null
-  ) {
-
-    if (
-      match.index !== consumed
-    ) {
-      return null;
+    if (problemInput) {
+      problemInput.focus();
     }
 
+  }, 100);
 
-    const element =
-      match[1];
-
-
-    const count =
-      match[2]
-        ? Number(match[2])
-        : 1;
+}
 
 
-    if (
-      !ATOMIC_MASSES[element]
-    ) {
-      return null;
+const newProblemBtn =
+  $("newProblemBtn");
+
+
+if (newProblemBtn) {
+
+  newProblemBtn.addEventListener(
+    "click",
+    newProblem
+  );
+
+}
+
+
+const historyNewProblem =
+  $("historyNewProblem");
+
+
+if (historyNewProblem) {
+
+  historyNewProblem.addEventListener(
+    "click",
+    newProblem
+  );
+
+}
+
+
+const typeCard =
+  $("typeCard");
+
+
+if (typeCard) {
+
+  typeCard.addEventListener(
+    "click",
+    () => {
+
+      if (problemInput) {
+        problemInput.focus();
+      }
+
     }
-
-
-    if (
-      !Number.isFinite(count) ||
-      count <= 0
-    ) {
-      return null;
-    }
-
-
-    atoms[element] =
-      (atoms[element] || 0) +
-      count;
-
-
-    consumed =
-      regex.lastIndex;
-
-  }
-
-
-  if (
-    consumed !== clean.length
-  ) {
-    return null;
-  }
-
-
-  return atoms;
+  );
 
 }
 
 
 /* =========================================================
-   MOLAR MASS
+   HISTORY NAVIGATION
 ========================================================= */
 
-function molarMass(formula) {
+document
+  .querySelectorAll(".nav-item")
+  .forEach(item => {
 
-  const atoms =
-    parseFormula(formula);
+    item.addEventListener(
+      "click",
+      () => {
 
+        showPage(
+          item.dataset.page
+        );
 
-  if (!atoms) {
-    return null;
-  }
+      }
+    );
 
-
-  let total = 0;
-
-
-  for (
-    const [
-      element,
-      count
-    ]
-    of Object.entries(atoms)
-  ) {
-
-    total +=
-      ATOMIC_MASSES[element] *
-      count;
-
-  }
+  });
 
 
-  return {
+const viewHistory =
+  $("viewHistory");
 
-    atoms,
 
-    mass:
-      round(total, 3)
+if (viewHistory) {
 
-  };
+  viewHistory.addEventListener(
+    "click",
+    () => {
+
+      showPage("history");
+
+    }
+  );
 
 }
 
 
 /* =========================================================
-   CHEMISTRY SOLVER
+   IMAGE INPUT
 ========================================================= */
 
-function solveChemistry(problem) {
+const imageBtn =
+  $("imageBtn");
 
-  const text =
-    problem.trim();
+const imageInput =
+  $("imageInput");
+
+const imagePreview =
+  $("imagePreview");
+
+const scanCard =
+  $("scanCard");
 
 
-  const lower =
-    text.toLowerCase();
+function openImagePicker() {
+
+  if (imageInput) {
+    imageInput.click();
+  }
+
+}
 
 
-  /* =====================================================
-     MOLAR MASS
-  ===================================================== */
+if (imageBtn) {
 
-  if (
-    lower.includes("massa molar")
-  ) {
+  imageBtn.addEventListener(
+    "click",
+    openImagePicker
+  );
 
-    const formulaMatches =
-      text.match(
-        /\b[A-Z][A-Za-z0-9₀₁₂₃₄₅₆₇₈₉]*\b/g
+}
+
+
+if (scanCard) {
+
+  scanCard.addEventListener(
+    "click",
+    openImagePicker
+  );
+
+}
+
+
+if (imageInput) {
+
+  imageInput.addEventListener(
+    "change",
+    () => {
+
+      const file =
+        imageInput.files?.[0];
+
+
+      if (!file) {
+        return;
+      }
+
+
+      if (!file.type.startsWith("image/")) {
+
+        showToast(
+          "Seleciona uma imagem válida."
+        );
+
+        return;
+      }
+
+
+      const reader =
+        new FileReader();
+
+
+      reader.onload =
+        event => {
+
+          if (!imagePreview) {
+            return;
+          }
+
+
+          imagePreview.innerHTML = `
+
+            <img
+              src="${event.target.result}"
+              alt="Imagem do problema"
+            >
+
+          `;
+
+
+          imagePreview.classList.remove(
+            "hidden"
+          );
+
+        };
+
+
+      reader.readAsDataURL(file);
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   VOICE INPUT
+========================================================= */
+
+const voiceBtn =
+  $("voiceBtn");
+
+
+if (voiceBtn) {
+
+  voiceBtn.addEventListener(
+    "click",
+    () => {
+
+      const SpeechRecognition =
+        window.SpeechRecognition ||
+        window.webkitSpeechRecognition;
+
+
+      if (!SpeechRecognition) {
+
+        showToast(
+          "O reconhecimento de voz não é suportado neste navegador."
+        );
+
+        return;
+
+      }
+
+
+      const recognition =
+        new SpeechRecognition();
+
+
+      recognition.lang =
+        "pt-PT";
+
+
+      recognition.interimResults =
+        false;
+
+
+      recognition.continuous =
+        false;
+
+
+      voiceBtn.classList.add(
+        "recording"
       );
 
 
-    if (formulaMatches) {
-
-      for (
-        const formula
-        of formulaMatches
-      ) {
-
-        const result =
-          molarMass(formula);
+      recognition.start();
 
 
-        if (!result) {
-          continue;
-        }
+      recognition.onresult =
+        event => {
+
+          const transcript =
+            event.results[0][0].transcript;
 
 
-        const breakdown =
-          Object.entries(
-            result.atoms
-          )
-            .map(
-              ([element, count]) =>
-                `${element}: ${count}`
-            )
-            .join(", ");
+          if (problemInput) {
 
-
-        return {
-
-          answer:
-            `${formatNumber(result.mass)} g/mol`,
-
-          steps: [
-
-            {
-              title:
-                "Identificar a fórmula",
-
-              description:
-                `A fórmula química analisada é ${formula}.`
-            },
-
-            {
-              title:
-                "Contar os átomos",
-
-              description:
-                `Composição: ${breakdown}.`
-            },
-
-            {
-              title:
-                "Somar as massas atómicas",
-
-              description:
-                "Multiplicamos a massa atómica de cada elemento pelo número de átomos presentes."
-            },
-
-            {
-              title:
-                "Resultado",
-
-              description:
-                "A massa molar é:",
-
-              formula:
-                `M(${formula}) = ${formatNumber(result.mass)} g/mol`
-            }
-
-          ],
-
-          methods: [
-
-            {
-              name:
-                "Soma das massas atómicas",
-
-              description:
-                "Calcula a massa molar somando as contribuições de todos os átomos da fórmula.",
-
-              result:
-                `${formatNumber(result.mass)} g/mol`
-            }
-
-          ],
-
-          learning: {
-
-            concept:
-              "Massa molar é a massa correspondente a um mol de uma substância.",
-
-            explanation:
-              "Para encontrar a massa molar, somamos as massas atómicas de todos os átomos presentes na fórmula.",
-
-            tip:
-              "Os números pequenos depois dos símbolos químicos indicam quantos átomos daquele elemento existem."
+            problemInput.value =
+              problemInput.value
+                ? `${problemInput.value} ${transcript}`
+                : transcript;
 
           }
 
         };
 
-      }
 
-    }
+      recognition.onerror =
+        error => {
 
-  }
+          console.error(
+            "Voice error:",
+            error
+          );
 
-
-  /* =====================================================
-     MOLES
-  ===================================================== */
-
-  if (
-    (
-      lower.includes("quantos mol") ||
-      lower.includes("número de mol") ||
-      lower.includes("numero de mol")
-    ) &&
-    (
-      lower.includes(" g") ||
-      lower.includes("gram")
-    )
-  ) {
-
-    const mass =
-      extractNumber(
-        text,
-        /(\d+(?:\.\d+)?)\s*g\b/i
-      );
-
-
-    const formulaMatches =
-      text.match(
-        /\b[A-Z][A-Za-z0-9₀₁₂₃₄₅₆₇₈₉]*\b/g
-      );
-
-
-    if (
-      mass !== null &&
-      formulaMatches
-    ) {
-
-      for (
-        const formula
-        of formulaMatches
-      ) {
-
-        const molar =
-          molarMass(formula);
-
-
-        if (!molar) {
-          continue;
-        }
-
-
-        const moles =
-          mass / molar.mass;
-
-
-        return {
-
-          answer:
-            `${formatNumber(moles)} mol`,
-
-          steps: [
-
-            {
-              title:
-                "Identificar os dados",
-
-              description:
-                `Massa = ${formatNumber(mass)} g; substância = ${formula}.`
-            },
-
-            {
-              title:
-                "Calcular a massa molar",
-
-              description:
-                `A massa molar de ${formula} é ${formatNumber(molar.mass)} g/mol.`,
-
-              formula:
-                `M = ${formatNumber(molar.mass)} g/mol`
-            },
-
-            {
-              title:
-                "Usar a fórmula dos mols",
-
-              description:
-                "O número de mols é a massa dividida pela massa molar.",
-
-              formula:
-                "n = m / M"
-            },
-
-            {
-              title:
-                "Substituir",
-
-              description:
-                "Aplicamos os valores.",
-
-              formula:
-                `n = ${formatNumber(mass)} / ${formatNumber(molar.mass)}`
-            },
-
-            {
-              title:
-                "Resultado",
-
-              description:
-                "A quantidade de matéria é:",
-
-              formula:
-                `n = ${formatNumber(moles)} mol`
-            }
-
-          ],
-
-          methods: [
-
-            {
-              name:
-                "Relação massa–mol",
-
-              description:
-                "Usa n = m/M.",
-
-              result:
-                `${formatNumber(moles)} mol`
-            }
-
-          ],
-
-          learning: {
-
-            concept:
-              "O mol é uma unidade usada para representar quantidade de matéria.",
-
-            explanation:
-              "Se conhecemos a massa de uma substância e a sua massa molar, podemos descobrir quantos mols ela representa.",
-
-            tip:
-              "Mantém a massa em gramas quando a massa molar estiver em g/mol."
-
-          }
+          showToast(
+            "Não foi possível reconhecer a voz."
+          );
 
         };
 
-      }
 
-    }
+      recognition.onend =
+        () => {
 
-  }
-
-
-  /* =====================================================
-     MASS CONCENTRATION
-  ===================================================== */
-
-  if (
-    lower.includes("concentração") ||
-    lower.includes("concentracao")
-  ) {
-
-    if (
-      !lower.includes("molar") &&
-      !lower.includes("molaridade")
-    ) {
-
-      const mass =
-        extractNumber(
-          text,
-          /(\d+(?:\.\d+)?)\s*g\b/i
-        );
-
-
-      const volume =
-        extractNumber(
-          text,
-          /(\d+(?:\.\d+)?)\s*l\b/i
-        );
-
-
-      if (
-        mass !== null &&
-        volume !== null &&
-        volume !== 0
-      ) {
-
-        const concentration =
-          mass / volume;
-
-
-        return {
-
-          answer:
-            `${formatNumber(concentration)} g/L`,
-
-          steps: [
-
-            {
-              title:
-                "Identificar os dados",
-
-              description:
-                `Massa do soluto = ${mass} g; volume da solução = ${volume} L.`
-            },
-
-            {
-              title:
-                "Usar a fórmula da concentração",
-
-              description:
-                "A concentração comum é a massa do soluto dividida pelo volume da solução.",
-
-              formula:
-                "C = m / V"
-            },
-
-            {
-              title:
-                "Substituir",
-
-              description:
-                "Aplicamos os valores fornecidos.",
-
-              formula:
-                `C = ${mass} / ${volume}`
-            },
-
-            {
-              title:
-                "Resultado",
-
-              description:
-                "A concentração é:",
-
-              formula:
-                `C = ${formatNumber(concentration)} g/L`
-            }
-
-          ],
-
-          methods: [
-
-            {
-              name:
-                "Concentração comum",
-
-              description:
-                "Relaciona massa de soluto e volume de solução.",
-
-              result:
-                `${formatNumber(concentration)} g/L`
-            }
-
-          ],
-
-          learning: {
-
-            concept:
-              "A concentração comum indica a massa de soluto existente por unidade de volume da solução.",
-
-            explanation:
-              "Dividimos a massa do soluto pelo volume da solução para saber quanta massa está presente em cada litro.",
-
-            tip:
-              "Quando usares C = m/V, confirma que a massa está em gramas e o volume em litros para obter g/L."
-
-          }
+          voiceBtn.classList.remove(
+            "recording"
+          );
 
         };
 
-      }
-
     }
-
-  }
-
-
-  /* =====================================================
-     MOLAR CONCENTRATION
-  ===================================================== */
-
-  if (
-    lower.includes("concentração molar") ||
-    lower.includes("concentracao molar") ||
-    lower.includes("molaridade")
-  ) {
-
-    const moles =
-      extractNumber(
-        text,
-        /(\d+(?:\.\d+)?)\s*mol\b/i
-      );
-
-
-    const volume =
-      extractNumber(
-        text,
-        /(\d+(?:\.\d+)?)\s*l\b/i
-      );
-
-
-    if (
-      moles !== null &&
-      volume !== null &&
-      volume !== 0
-    ) {
-
-      const concentration =
-        moles / volume;
-
-
-      return {
-
-        answer:
-          `${formatNumber(concentration)} mol/L`,
-
-        steps: [
-
-          {
-            title:
-              "Identificar os dados",
-
-            description:
-              `Quantidade de matéria = ${moles} mol; volume = ${volume} L.`
-          },
-
-          {
-            title:
-              "Usar a fórmula da molaridade",
-
-            description:
-              "A concentração molar é a quantidade de matéria dividida pelo volume.",
-
-            formula:
-              "C = n / V"
-          },
-
-          {
-            title:
-              "Substituir",
-
-            description:
-              "Aplicamos os valores.",
-
-            formula:
-              `C = ${moles} / ${volume}`
-          },
-
-          {
-            title:
-              "Resultado",
-
-            description:
-              "A concentração molar é:",
-
-            formula:
-              `C = ${formatNumber(concentration)} mol/L`
-          }
-
-        ],
-
-        methods: [
-
-          {
-            name:
-              "Molaridade",
-
-            description:
-              "Relaciona quantidade de matéria e volume da solução.",
-
-            result:
-              `${formatNumber(concentration)} mol/L`
-          }
-
-        ],
-
-        learning: {
-
-          concept:
-            "Molaridade é a quantidade de mols de soluto por litro de solução.",
-
-          explanation:
-            "A fórmula C = n/V mostra quantos mols estão presentes em cada litro da solução.",
-
-          tip:
-            "O volume deve estar em litros para obter mol/L."
-
-        }
-
-      };
-
-    }
-
-  }
-
-
-  return null;
-
-}
-
-
-/* =========================================================
-   MAIN SOLVER
-========================================================= */
-
-function solveProblem(problem, subject) {
-
-  const clean =
-    cleanProblem(problem);
-
-
-  if (!clean) {
-    return null;
-  }
-
-
-  if (subject === "math") {
-
-    return solveMath(clean);
-
-  }
-
-
-  if (subject === "physics") {
-
-    return solvePhysics(clean);
-
-  }
-
-
-  if (subject === "chemistry") {
-
-    return solveChemistry(clean);
-
-  }
-
-
-  return null;
+  );
 
 }
 
@@ -2753,216 +2054,83 @@ function solveProblem(problem, subject) {
    API STATUS
 ========================================================= */
 
-app.get(
-  "/api/status",
-  (req, res) => {
+async function checkAPI() {
 
-    res.json({
+  try {
 
-      success:
-        true,
-
-      name:
-        "EinsteinWeb",
-
-      brain:
-        "Einstein Brain V0.4",
-
-      status:
-        "online",
-
-      engines: {
-
-        mathematics:
-          "active",
-
-        physics:
-          "active",
-
-        chemistry:
-          "active",
-
-        artificialIntelligence:
-          "not_connected"
-
-      }
-
-    });
-
-  }
-);
-
-
-/* =========================================================
-   API SOLVE
-========================================================= */
-
-app.post(
-  "/api/solve",
-  (req, res) => {
-
-    try {
-
-      const {
-        problem,
-        subject
-      } = req.body || {};
-
-
-      if (
-        typeof problem !== "string" ||
-        !problem.trim()
-      ) {
-
-        return res.status(400).json({
-
-          success:
-            false,
-
-          error:
-            "Digite um problema."
-
-        });
-
-      }
-
-
-      const selectedSubject =
-        [
-          "math",
-          "physics",
-          "chemistry"
-        ].includes(subject)
-          ? subject
-          : "math";
-
-
-      const result =
-        solveProblem(
-          problem,
-          selectedSubject
-        );
-
-
-      if (!result) {
-
-        return res.status(422).json({
-
-          success:
-            false,
-
-          error:
-            "Não foi possível encontrar uma forma de resolver este problema com o Einstein Brain V0.4. Tente escrever o problema com mais detalhes."
-
-        });
-
-      }
-
-
-      return res.json({
-
-        success:
-          true,
-
-        subject:
-          selectedSubject,
-
-        result
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Solve error:",
-        error
+    const response =
+      await fetch(
+        "/api/status"
       );
 
 
-      return res.status(500).json({
-
-        success:
-          false,
-
-        error:
-          "Ocorreu um erro interno ao processar o problema."
-
-      });
-
+    if (!response.ok) {
+      throw new Error("API offline");
     }
 
+
+    const data =
+      await response.json();
+
+
+    console.log(
+      "EinsteinWeb API:",
+      data
+    );
+
+
+  } catch (error) {
+
+    console.warn(
+      "EinsteinWeb API status error:",
+      error
+    );
+
   }
-);
+
+}
 
 
 /* =========================================================
-   FRONTEND FALLBACK
-   Express 5 compatible
+   INITIALIZATION
 ========================================================= */
 
-app.use(
-  (req, res) => {
+function initialize() {
 
-    res.sendFile(
-      path.join(
-        publicPath,
-        "index.html"
-      )
-    );
+  console.log(
+    "========================================"
+  );
 
-  }
-);
+  console.log(
+    "EinsteinWeb Frontend V0.4"
+  );
+
+  console.log(
+    "Frontend carregado."
+  );
+
+  console.log(
+    "API:",
+    "/api/solve"
+  );
+
+  console.log(
+    "========================================"
+  );
 
 
-/* =========================================================
-   START
-========================================================= */
+  setSubject("math");
 
-app.listen(
-  PORT,
-  () => {
+  renderRecent();
 
-    console.log("");
+  renderHistory();
 
-    console.log(
-      "========================================"
-    );
+  renderFavorites();
 
-    console.log(
-      "       EINSTEINWEB"
-    );
+  checkAPI();
 
-    console.log(
-      "       Einstein Brain V0.4"
-    );
+}
 
-    console.log(
-      "========================================"
-    );
 
-    console.log(
-      `Server running on port ${PORT}`
-    );
-
-    console.log(
-      "Mathematics Engine: ACTIVE"
-    );
-
-    console.log(
-      "Physics Engine: ACTIVE"
-    );
-
-    console.log(
-      "Chemistry Engine: ACTIVE"
-    );
-
-    console.log(
-      "AI Layer: NOT CONNECTED"
-    );
-
-    console.log(
-      "========================================"
-    );
-
-  }
-);
+initialize();
+```
